@@ -31,7 +31,7 @@ abstract class _ByteBasedList extends CapnpList {
 class CapnpUInt8List extends _ByteBasedList {
   CapnpUInt8List(ListPointer pointer) : super(pointer, 1);
 
-  UnmodifiableUint8ListView get list {
+  UnmodifiableUint8ListView get value {
     final list = segmentView.data.buffer
         .asUint8List(segmentView.totalOffsetInBytes, lengthInBytes);
     return UnmodifiableUint8ListView(list);

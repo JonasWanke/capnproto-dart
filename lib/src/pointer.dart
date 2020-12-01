@@ -25,8 +25,8 @@ class StructPointer extends Pointer {
   int get pointerSectionLengthInWords => segmentView.getUInt16(6);
 
   SegmentView get structView {
-    return segmentView.segment.view(
-      segmentView.offsetInWords + 1 + offsetInWords,
+    return segmentView.viewRelativeToEnd(
+      offsetInWords,
       dataSectionLengthInWords + pointerSectionLengthInWords,
     );
   }
@@ -37,8 +37,6 @@ class StructPointer extends Pointer {
 
 /// https://capnproto.org/encoding.html#lists
 class ListPointer extends Pointer {
-  factory ListPointer.inSegment(Segment segment, int offsetInWords) =>
-      ListPointer.fromView(segment.view(offsetInWords, 1));
   ListPointer.fromView(SegmentView segmentView)
       : assert(segmentView.getUInt8(0) & 0x3 == 0x01),
         super(segmentView);

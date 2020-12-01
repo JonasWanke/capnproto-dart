@@ -105,9 +105,9 @@ class SegmentView {
     return Text(pointer).value;
   }
 
-  UnmodifiableByteDataView getData(int offsetInWords) {
-    // TODO(JonasWanke): implement getData
-    return null;
+  UnmodifiableUint8ListView getData(int offsetInWords) {
+    final pointer = ListPointer.fromView(subview(offsetInWords, 1));
+    return CapnpUInt8List(pointer).value;
   }
 
   // List<T> getList<T>(int offset) {}
