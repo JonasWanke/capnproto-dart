@@ -1,0 +1,35 @@
+local/
+
+pubspec.lock
+Gemfile.lock
+
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.buildlog/
+.history
+.svn/
+
+# IntelliJ
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# VS Code
+.vscode/
+
+# Dart/Pub
+**/doc/api/
+.dart_tool/
+.packages
+.pub-cache/
+.pub/
+build/
+.test_coverage.dart
+
+coverage/
