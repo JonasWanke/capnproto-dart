@@ -1,5 +1,8 @@
 import 'dart:typed_data';
 
+import 'package:capnproto/src/objects/list.dart';
+import 'package:capnproto/src/pointer.dart';
+
 import 'constants.dart';
 import 'message.dart';
 
@@ -23,7 +26,7 @@ class SegmentView {
         assert(offsetInWords != null),
         assert(offsetInWords >= 0),
         assert(lengthInWords != null),
-        assert(lengthInWords > 0),
+        assert(lengthInWords >= 0),
         assert((offsetInWords + lengthInWords) * CapnpConstants.bytesPerWord <=
             segment.lengthInBytes),
         data = segment.data.buffer.asByteData(
@@ -35,8 +38,37 @@ class SegmentView {
   final Segment segment;
   final ByteData data;
   final int offsetInWords;
+  int get offsetInBytes => offsetInWords * CapnpConstants.bytesPerWord;
+  int get totalOffsetInBytes => segment.data.offsetInBytes + offsetInBytes;
   final int lengthInWords;
   int get lengthInBytes => lengthInWords * CapnpConstants.bytesPerWord;
+
+  SegmentView subview(int offsetInWords, int lengthInWords) {
+    assert(offsetInWords != null);
+    assert(offsetInWords >= 0);
+    assert(lengthInWords != null);
+    assert(lengthInWords >= 0);
+    assert(offsetInWords + lengthInWords <= this.lengthInWords);
+
+    return SegmentView._(
+      segment,
+      this.offsetInWords + offsetInWords,
+      lengthInWords,
+    );
+  }
+
+  SegmentView viewRelativeToEnd(int offsetInWords, int lengthInWords) {
+    assert(offsetInWords != null);
+    assert(offsetInWords >= 0);
+    assert(lengthInWords != null);
+    assert(lengthInWords >= 0);
+
+    return SegmentView._(
+      segment,
+      this.offsetInWords + this.lengthInWords + offsetInWords,
+      lengthInWords,
+    );
+  }
 
   // TODO(JonasWanke): default values
   void getVoid(int offsetInBits) {}
@@ -69,8 +101,8 @@ class SegmentView {
       data.getFloat64(offsetInBytes, Endian.little);
 
   String getText(int offsetInWords) {
-    // TODO(JonasWanke): implement getText
-    return null;
+    final pointer = ListPointer.fromView(subview(offsetInWords, 1));
+    return Text(pointer).value;
   }
 
   UnmodifiableByteDataView getData(int offsetInWords) {
