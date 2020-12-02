@@ -115,6 +115,51 @@ class SegmentView {
     return CapnpBoolList(pointer).value;
   }
 
+  UnmodifiableUint8ListView getUInt8List(int offsetInWords) {
+    final pointer = ListPointer.fromView(subview(offsetInWords, 1));
+    return CapnpUInt8List(pointer).value;
+  }
+
+  UnmodifiableUint16ListView getUInt16List(int offsetInWords) {
+    final pointer = ListPointer.fromView(subview(offsetInWords, 1));
+    return CapnpUInt16List(pointer).value;
+  }
+
+  UnmodifiableUint32ListView getUInt32List(int offsetInWords) {
+    final pointer = ListPointer.fromView(subview(offsetInWords, 1));
+    return CapnpUInt32List(pointer).value;
+  }
+
+  UnmodifiableUint64ListView getUInt64List(int offsetInWords) {
+    final pointer = ListPointer.fromView(subview(offsetInWords, 1));
+    return CapnpUInt64List(pointer).value;
+  }
+
+  UnmodifiableInt8ListView getInt8List(int offsetInWords) {
+    final pointer = ListPointer.fromView(subview(offsetInWords, 1));
+    return CapnpInt8List(pointer).value;
+  }
+
+  UnmodifiableInt16ListView getInt16List(int offsetInWords) {
+    final pointer = ListPointer.fromView(subview(offsetInWords, 1));
+    return CapnpInt16List(pointer).value;
+  }
+
+  UnmodifiableInt32ListView getInt32List(int offsetInWords) {
+    final pointer = ListPointer.fromView(subview(offsetInWords, 1));
+    return CapnpInt32List(pointer).value;
+  }
+
+  UnmodifiableInt64ListView getInt64List(int offsetInWords) {
+    final pointer = ListPointer.fromView(subview(offsetInWords, 1));
+    return CapnpInt64List(pointer).value;
+  }
+
+  UnmodifiableFloat32ListView getFloat32List(int offsetInWords) {
+    final pointer = ListPointer.fromView(subview(offsetInWords, 1));
+    return CapnpFloat32List(pointer).value;
+  }
+
   // List<T> getList<T>(int offset) {}
   // Enum<T> getEnum<T>(int offset) {}
   // T getStruct<T>(int offset) {}

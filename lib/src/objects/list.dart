@@ -241,16 +241,110 @@ abstract class _ByteBasedList extends CapnpList {
   final int elementSizeInBytes;
 }
 
+// Unsigned integer lists:
 class CapnpUInt8List extends _ByteBasedList {
   CapnpUInt8List(ListPointer pointer) : super(pointer, 1);
 
   UnmodifiableUint8ListView get value {
     final list = segmentView.data.buffer
-        .asUint8List(segmentView.totalOffsetInBytes, lengthInBytes);
+        .asUint8List(segmentView.totalOffsetInBytes, length);
     return UnmodifiableUint8ListView(list);
   }
 }
 
+class CapnpUInt16List extends _ByteBasedList {
+  CapnpUInt16List(ListPointer pointer) : super(pointer, 2);
+
+  UnmodifiableUint16ListView get value {
+    final list = segmentView.data.buffer
+        .asUint16List(segmentView.totalOffsetInBytes, length);
+    return UnmodifiableUint16ListView(list);
+  }
+}
+
+class CapnpUInt32List extends _ByteBasedList {
+  CapnpUInt32List(ListPointer pointer) : super(pointer, 4);
+
+  UnmodifiableUint32ListView get value {
+    final list = segmentView.data.buffer
+        .asUint32List(segmentView.totalOffsetInBytes, length);
+    return UnmodifiableUint32ListView(list);
+  }
+}
+
+class CapnpUInt64List extends _ByteBasedList {
+  CapnpUInt64List(ListPointer pointer) : super(pointer, 8);
+
+  UnmodifiableUint64ListView get value {
+    final list = segmentView.data.buffer
+        .asUint64List(segmentView.totalOffsetInBytes, length);
+    return UnmodifiableUint64ListView(list);
+  }
+}
+
+// Signed integer lists:
+class CapnpInt8List extends _ByteBasedList {
+  CapnpInt8List(ListPointer pointer) : super(pointer, 1);
+
+  UnmodifiableInt8ListView get value {
+    final list = segmentView.data.buffer
+        .asInt8List(segmentView.totalOffsetInBytes, length);
+    return UnmodifiableInt8ListView(list);
+  }
+}
+
+class CapnpInt16List extends _ByteBasedList {
+  CapnpInt16List(ListPointer pointer) : super(pointer, 2);
+
+  UnmodifiableInt16ListView get value {
+    final list = segmentView.data.buffer
+        .asInt16List(segmentView.totalOffsetInBytes, length);
+    return UnmodifiableInt16ListView(list);
+  }
+}
+
+class CapnpInt32List extends _ByteBasedList {
+  CapnpInt32List(ListPointer pointer) : super(pointer, 4);
+
+  UnmodifiableInt32ListView get value {
+    final list = segmentView.data.buffer
+        .asInt32List(segmentView.totalOffsetInBytes, length);
+    return UnmodifiableInt32ListView(list);
+  }
+}
+
+class CapnpInt64List extends _ByteBasedList {
+  CapnpInt64List(ListPointer pointer) : super(pointer, 8);
+
+  UnmodifiableInt64ListView get value {
+    final list = segmentView.data.buffer
+        .asInt64List(segmentView.totalOffsetInBytes, length);
+    return UnmodifiableInt64ListView(list);
+  }
+}
+
+// Float lists:
+class CapnpFloat32List extends _ByteBasedList {
+  CapnpFloat32List(ListPointer pointer) : super(pointer, 4);
+
+  UnmodifiableFloat32ListView get value {
+    final list = segmentView.data.buffer
+        .asFloat32List(segmentView.totalOffsetInBytes, length);
+    return UnmodifiableFloat32ListView(list);
+  }
+}
+
+class CapnpFloat64List extends _ByteBasedList {
+  CapnpFloat64List(ListPointer pointer) : super(pointer, 8);
+
+  UnmodifiableFloat64ListView get value {
+    final list = segmentView.data.buffer
+        .asFloat64List(segmentView.totalOffsetInBytes, length);
+    return UnmodifiableFloat64ListView(list);
+  }
+}
+
+// Text list:
 class Text extends _ByteBasedList {
   Text(ListPointer pointer) : super(pointer, 1);
 
@@ -262,6 +356,7 @@ class Text extends _ByteBasedList {
   }
 }
 
+// Composite list:
 class CompositeList<T> extends CapnpList {
   factory CompositeList(ListPointer pointer) {
     final tagWord = StructPointer.fromView(pointer.segmentView.subview(0, 1));
