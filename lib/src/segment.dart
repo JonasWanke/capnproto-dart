@@ -110,6 +110,11 @@ class SegmentView {
     return CapnpUInt8List(pointer).value;
   }
 
+  UnmodifiableBoolListView getBoolList(int offsetInWords) {
+    final pointer = ListPointer.fromView(subview(offsetInWords, 1));
+    return CapnpBoolList(pointer).value;
+  }
+
   // List<T> getList<T>(int offset) {}
   // Enum<T> getEnum<T>(int offset) {}
   // T getStruct<T>(int offset) {}
