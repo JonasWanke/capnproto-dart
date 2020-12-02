@@ -357,16 +357,81 @@ class Text extends _ByteBasedList {
 }
 
 // Composite list:
-class CompositeList<T> extends CapnpList {
-  factory CompositeList(ListPointer pointer) {
-    final tagWord = StructPointer.fromView(pointer.segmentView.subview(0, 1));
+abstract class CompositeList<T> extends ListMixin<T> {
+  CompositeList();
+
+  factory CompositeList.fromPointer(CompositeListPointer<T> pointer) =>
+      _CompositeList(pointer);
+}
+
+class _CompositeList<T> extends CompositeList<T> {
+  factory _CompositeList(CompositeListPointer<T> pointer) {
+    final tagWord = StructPointer.fromView(pointer.targetView.subview(0, 1));
     final elementCount = tagWord.offsetInWords;
-    return CompositeList._(
+    final elementDataSectionLengthInWords = tagWord.dataSectionLengthInWords;
+    final elementLengthInWords =
+        elementDataSectionLengthInWords + tagWord.pointerSectionLengthInWords;
+    return _CompositeList._(
       pointer,
       elementCount,
+      elementDataSectionLengthInWords,
+      elementLengthInWords,
     );
   }
-  CompositeList._(ListPointer pointer, this.length) : super(pointer);
+  _CompositeList._(
+    this._pointer,
+    this.length,
+    this._elementDataSectionLengthInWords,
+    this._elementLengthInWords,
+  )   : assert(_pointer != null),
+        assert(length != null),
+        assert(_elementDataSectionLengthInWords != null),
+        assert(_elementLengthInWords != null);
 
+  final CompositeListPointer<T> _pointer;
+  final int _elementDataSectionLengthInWords;
+  final int _elementLengthInWords;
+
+  @override
   final int length;
+  @override
+  set length(newLength) =>
+      throw UnsupportedError('Cannot resize a fixed-length list');
+
+  @override
+  T operator [](int index) {
+    if (index < 0 || index >= length) {
+      throw RangeError.index(index, this, 'index');
+    }
+
+    final segmentView = _pointer.targetView.subview(
+      1 + index * _elementLengthInWords,
+      _elementLengthInWords,
+    );
+    return _pointer.factory(segmentView, _elementDataSectionLengthInWords);
+  }
+
+  @override
+  void operator []=(int index, T value) {
+    if (index < 0 || index >= length) {
+      throw RangeError.index(index, this, 'index');
+    }
+
+    // TODO(JonasWanke): support writing to a CompositeList
+    throw UnsupportedError('Not yet implemented.');
+  }
+}
+
+/// View of a [CompositeList] that disallows modification.
+class UnmodifiableCompositeListView<T> extends ListBase<T>
+    with _UnmodifiableListMixin<T>
+    implements CompositeList<T> {
+  UnmodifiableCompositeListView(CompositeList<T> list) : _list = list;
+
+  final CompositeList<T> _list;
+
+  @override
+  int get length => _list.length;
+  @override
+  T operator [](int index) => _list[index];
 }

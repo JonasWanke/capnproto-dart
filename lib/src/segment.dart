@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:capnproto/src/objects/list.dart';
+import 'package:capnproto/src/objects/struct.dart';
 import 'package:capnproto/src/pointer.dart';
 
 import 'constants.dart';
@@ -163,7 +164,17 @@ class SegmentView {
     return CapnpFloat32List(pointer).value;
   }
 
-  // List<T> getList<T>(int offset) {}
+  // Complex types:
+  UnmodifiableCompositeListView<T> getCompositeList<T>(
+    int offsetInWords,
+    StructFactory<T> factory,
+  ) {
+    final pointer = CompositeListPointer.resolvedFromView(
+      subview(offsetInWords, 1),
+      factory,
+    );
+    return UnmodifiableCompositeListView(CompositeList.fromPointer(pointer));
+  }
   // Enum<T> getEnum<T>(int offset) {}
   // T getStruct<T>(int offset) {}
   // TODO(JonasWanke): getInterface
