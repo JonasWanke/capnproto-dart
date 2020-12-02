@@ -74,7 +74,7 @@ class SegmentView {
   // TODO(JonasWanke): default values
 
   // Primitives:
-  void getVoid(int offsetInBits) {}
+  void getVoid(int offsetInBytes) {}
   bool getBool(int offsetInBits) {
     final byte = data.getUint8(offsetInBits ~/ CapnpConstants.bitsPerByte);
     final bitIndex = offsetInBits % CapnpConstants.bitsPerByte;
@@ -111,6 +111,12 @@ class SegmentView {
   UnmodifiableUint8ListView getData(int offsetInWords) {
     final pointer = ListPointer.resolvedFromView(subview(offsetInWords, 1));
     return CapnpUInt8List(pointer).value;
+  }
+
+  // Nested structs:
+  T getStruct<T>(int offsetInWords, StructFactory<T> factory) {
+    final pointer = StructPointer.resolvedFromView(subview(offsetInWords, 1));
+    return factory(pointer.structView, pointer.dataSectionLengthInWords);
   }
 
   // Lists of primitives:
