@@ -9,9 +9,9 @@ The [example folder](https://github.com/JonasWanke/capnproto-dart/tree/main/exam
 
 In this early stage, this package only supports decoding messages containing primitive values and lists of primitives or structs. The following features are not yet supported:
 
-- encoding messages
-- packed messages
-- enums, groups & unions
-- default values
-- inter-segment pointers with a two-word landing pad
-- RPCs/Capabilities
+* encoding messages
+* packed messages
+* enums, groups & unions
+* default values
+* inter-segment pointers with a two-word landing pad
+* RPCs/Capabilities

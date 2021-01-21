@@ -15,4 +15,4 @@ assignees: ''
 
 **Environment:**
 <!-- Please complete the following information: -->
-- Package version:  <!-- e.g. 1.0.2 -->
+* Package version:  <!-- e.g. 1.0.2 -->
