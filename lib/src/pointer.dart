@@ -1,6 +1,5 @@
-import 'package:capnproto/src/constants.dart';
-import 'package:capnproto/src/objects/list.dart';
-
+import 'constants.dart';
+import 'objects/list.dart';
 import 'objects/struct.dart';
 import 'segment.dart';
 

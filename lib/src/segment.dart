@@ -1,11 +1,10 @@
 import 'dart:typed_data';
 
-import 'package:capnproto/src/objects/list.dart';
-import 'package:capnproto/src/objects/struct.dart';
-import 'package:capnproto/src/pointer.dart';
-
 import 'constants.dart';
 import 'message.dart';
+import 'objects/list.dart';
+import 'objects/struct.dart';
+import 'pointer.dart';
 
 class Segment {
   Segment(this.message, this.data)
