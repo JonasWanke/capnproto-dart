@@ -1,7 +1,7 @@
 # capnproto-dart: Cap'n Proto for Dart
 
-![Build, Test & Lint](https://github.com/JonasWanke/capnproto-dart/workflows/Build,%20Test%20&%20Lint/badge.svg)
-[![Coverage](https://codecov.io/gh/JonasWanke/capnproto-dart/branch/main/graph/badge.svg)](https://codecov.io/gh/JonasWanke/rrule)
+[![Build, Test & Lint](https://github.com/JonasWanke/capnproto-dart/workflows/Build,%20Test%20&%20Lint/badge.svg)](https://github.com/JonasWanke/capnproto-dart/actions?query=branch%3Amain+workflow%3A%22Build%2C+Test+%26+Lint%22)
+[![Coverage](https://codecov.io/gh/JonasWanke/capnproto-dart/branch/main/graph/badge.svg)](https://codecov.io/gh/JonasWanke/capnproto-dart)
 
 [Cap'n Proto](https://capnproto.org) is an extremely efficient protocol for sharing data and capabilities, and capnproto-dart is a pure Dart implementation.
 
