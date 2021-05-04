@@ -46,9 +46,7 @@ void main() {
 }
 
 class TestStruct {
-  const TestStruct(this.segmentView, this.dataSectionLengthInWords)
-      : assert(segmentView != null),
-        assert(dataSectionLengthInWords != null);
+  const TestStruct(this.segmentView, this.dataSectionLengthInWords);
 
   static TestStruct from(
     SegmentView segmentView,
@@ -92,9 +90,7 @@ class TestStruct {
 }
 
 class Foo {
-  const Foo(this.segmentView, this.dataSectionLengthInWords)
-      : assert(segmentView != null),
-        assert(dataSectionLengthInWords != null);
+  const Foo(this.segmentView, this.dataSectionLengthInWords);
 
   static Foo from(SegmentView segmentView, int dataSectionLengthInWords) =>
       Foo(segmentView, dataSectionLengthInWords);

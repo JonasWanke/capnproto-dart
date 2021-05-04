@@ -10,8 +10,7 @@ import '../segment.dart';
 /// https://capnproto.org/encoding.html#lists
 abstract class CapnpList {
   CapnpList(ListPointer pointer)
-      : assert(pointer != null),
-        segmentView = pointer.targetView;
+      : segmentView = pointer.targetView;
 
   final SegmentView segmentView;
 }
@@ -19,12 +18,7 @@ abstract class CapnpList {
 // Bool list:
 class BoolList extends ListMixin<bool> {
   BoolList._(ByteBuffer buffer, int offsetInBytes, this.length)
-      : assert(buffer != null),
-        assert(offsetInBytes != null),
-        assert(length != null),
-        assert(offsetInBytes + (length / CapnpConstants.bitsPerByte).ceil() !=
-            null),
-        data = buffer.asByteData(
+      : data = buffer.asByteData(
             offsetInBytes, (length / CapnpConstants.bitsPerByte).ceil());
 
   final ByteData data;
@@ -114,7 +108,7 @@ mixin _UnmodifiableListMixin<E> on List<E> {
 
   /// This operation is not supported by an unmodifiable list.
   @override
-  bool remove(Object element) =>
+  bool remove(Object? element) =>
       throw UnsupportedError('Cannot remove from an unmodifiable list');
 
   /// This operation is not supported by an unmodifiable list.
@@ -129,12 +123,12 @@ mixin _UnmodifiableListMixin<E> on List<E> {
 
   /// This operation is not supported by an unmodifiable list.
   @override
-  void sort([Comparator<E> compare]) =>
+  void sort([int Function(E a, E b)? compare]) =>
       throw UnsupportedError('Cannot modify an unmodifiable list');
 
   /// This operation is not supported by an unmodifiable list.
   @override
-  void shuffle([Random random]) =>
+  void shuffle([Random? random]) =>
       throw UnsupportedError('Cannot modify an unmodifiable list');
 
   /// This operation is not supported by an unmodifiable list.
@@ -169,7 +163,7 @@ mixin _UnmodifiableListMixin<E> on List<E> {
 
   /// This operation is not supported by an unmodifiable list.
   @override
-  void fillRange(int start, int end, [E fillValue]) =>
+  void fillRange(int start, int end, [E? fill]) =>
       throw UnsupportedError('Cannot modify an unmodifiable list');
 }
 
@@ -188,8 +182,8 @@ extension ByteBufferAsBoolList on ByteBuffer {
   /// * `length` must not be negative, and
   /// * `offsetInBytes + (length / 8).ceil()` must not be greater than
   ///   [lengthInBytes].
-  BoolList asBoolList([int offsetInBytes = 0, int length]) =>
-      BoolList._(this, offsetInBytes, length);
+  BoolList asBoolList([int offsetInBytes = 0, int? length]) =>
+      BoolList._(this, offsetInBytes, length!);
 }
 
 /// View of a [BoolList] that disallows modification.
@@ -212,8 +206,7 @@ class UnmodifiableBoolListView extends ListBase<bool>
 
 class CapnpBoolList extends CapnpList {
   CapnpBoolList(ListPointer pointer)
-      : assert(pointer != null),
-        assert(!pointer.isCompositeList),
+      : assert(!pointer.isCompositeList),
         assert(pointer.elementSizeInBits == 1),
         length = pointer.elementCount,
         super(pointer);
@@ -229,8 +222,7 @@ class CapnpBoolList extends CapnpList {
 
 abstract class _ByteBasedList extends CapnpList {
   _ByteBasedList(ListPointer pointer, this.elementSizeInBytes)
-      : assert(pointer != null),
-        assert(!pointer.isCompositeList),
+      : assert(!pointer.isCompositeList),
         assert(pointer.elementSizeInBits ==
             elementSizeInBytes * CapnpConstants.bitsPerByte),
         length = pointer.elementCount,
@@ -383,10 +375,7 @@ class _CompositeList<T> extends CompositeList<T> {
     this.length,
     this._elementDataSectionLengthInWords,
     this._elementLengthInWords,
-  )   : assert(_pointer != null),
-        assert(length != null),
-        assert(_elementDataSectionLengthInWords != null),
-        assert(_elementLengthInWords != null);
+  );
 
   final CompositeListPointer<T> _pointer;
   final int _elementDataSectionLengthInWords;
