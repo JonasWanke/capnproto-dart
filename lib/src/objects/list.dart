@@ -182,8 +182,13 @@ extension ByteBufferAsBoolList on ByteBuffer {
   /// * `length` must not be negative, and
   /// * `offsetInBytes + (length / 8).ceil()` must not be greater than
   ///   [lengthInBytes].
-  BoolList asBoolList([int offsetInBytes = 0, int? length]) =>
-      BoolList._(this, offsetInBytes, length!);
+  BoolList asBoolList([int offsetInBytes = 0, int? length]) {
+    return BoolList._(
+      this,
+      offsetInBytes,
+      length ?? (lengthInBytes - offsetInBytes) * CapnpConstants.bitsPerByte,
+    );
+  }
 }
 
 /// View of a [BoolList] that disallows modification.
