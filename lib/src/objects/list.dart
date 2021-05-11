@@ -123,7 +123,7 @@ mixin _UnmodifiableListMixin<E> on List<E> {
 
   /// This operation is not supported by an unmodifiable list.
   @override
-  void sort([int Function(E a, E b)? compare]) =>
+  void sort([Comparator<E>? compare]) =>
       throw UnsupportedError('Cannot modify an unmodifiable list');
 
   /// This operation is not supported by an unmodifiable list.
