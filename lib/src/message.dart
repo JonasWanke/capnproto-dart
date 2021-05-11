@@ -8,7 +8,6 @@ import 'segment.dart';
 
 class Message {
   factory Message.fromBuffer(ByteBuffer buffer) {
-
     // https://capnproto.org/encoding.html#serialization-over-a-stream
     final data = buffer.asByteData();
     final segmentCount = 1 + data.getUint32(0, Endian.little);
