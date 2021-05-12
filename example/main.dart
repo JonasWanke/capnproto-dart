@@ -114,3 +114,5 @@ class Foo {
   @override
   String toString() => 'Foo(bar: $bar)';
 }
+
+// ignore_for_file: avoid_print
