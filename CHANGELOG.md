@@ -4,9 +4,8 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-
 <!-- Template:
-## [NEW](https://github.com/JonasWanke/capnproto-dart/compare/vOLD...vNEW) · 2020-xx-xx
+## NEW · 2021-xx-xx
 ### ⚠ BREAKING CHANGES
 ### 🎉 New Features
 ### ⚡ Changes
@@ -15,6 +14,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ### 🏗 Refactoring
 ### 📦 Build & CI
 -->
+
+## 0.2.0 · 2021-05-12
+
+### ⚠ BREAKING CHANGES
+* migrate to null-safety ([#1](https://github.com/JonasWanke/capnproto-dart/pull/1)). Thanks to [@loothood](https://github.com/loothood)!
 
 ## 0.1.0 · 2020-12-02
 
