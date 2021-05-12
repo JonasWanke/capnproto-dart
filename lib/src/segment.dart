@@ -8,9 +8,7 @@ import 'pointer.dart';
 
 class Segment {
   Segment(this.message, this.data)
-      : assert(message != null),
-        assert(data != null),
-        assert(data.lengthInBytes % CapnpConstants.bytesPerWord == 0);
+      : assert(data.lengthInBytes % CapnpConstants.bytesPerWord == 0);
 
   final Message message;
   final ByteData data;
@@ -22,10 +20,7 @@ class Segment {
 
 class SegmentView {
   SegmentView._(this.segment, this.offsetInWords, this.lengthInWords)
-      : assert(segment != null),
-        assert(offsetInWords != null),
-        assert(offsetInWords >= 0),
-        assert(lengthInWords != null),
+      : assert(offsetInWords >= 0),
         assert(lengthInWords >= 0),
         assert((offsetInWords + lengthInWords) * CapnpConstants.bytesPerWord <=
             segment.lengthInBytes),
@@ -44,9 +39,7 @@ class SegmentView {
   int get lengthInBytes => lengthInWords * CapnpConstants.bytesPerWord;
 
   SegmentView subview(int offsetInWords, int lengthInWords) {
-    assert(offsetInWords != null);
     assert(offsetInWords >= 0);
-    assert(lengthInWords != null);
     assert(lengthInWords >= 0);
     assert(offsetInWords + lengthInWords <= this.lengthInWords);
 
@@ -58,9 +51,7 @@ class SegmentView {
   }
 
   SegmentView viewRelativeToEnd(int offsetInWords, int lengthInWords) {
-    assert(offsetInWords != null);
     assert(offsetInWords >= 0);
-    assert(lengthInWords != null);
     assert(lengthInWords >= 0);
 
     return SegmentView._(

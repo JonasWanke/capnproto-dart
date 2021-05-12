@@ -8,8 +8,6 @@ import 'segment.dart';
 
 class Message {
   factory Message.fromBuffer(ByteBuffer buffer) {
-    assert(buffer != null);
-
     // https://capnproto.org/encoding.html#serialization-over-a-stream
     final data = buffer.asByteData();
     final segmentCount = 1 + data.getUint32(0, Endian.little);
@@ -30,13 +28,12 @@ class Message {
   }
 
   // ignore: prefer_collection_literals, Literals create an unmodifiable list.
-  Message._() : _segments = List<Segment>();
+  Message._() : _segments = <Segment>[];
 
   final List<Segment> _segments;
   List<Segment> get segments => UnmodifiableListView(_segments);
 
   void _addSegment(Segment segment) {
-    assert(segment != null);
     assert(segment.message == this);
 
     _segments.add(segment);

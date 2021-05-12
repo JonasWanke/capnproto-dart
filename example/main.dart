@@ -18,9 +18,7 @@ void main(List<String> args) {
 // For every struct in your Cap'n Proto definitions, create a class like this:
 class TestStruct {
   // Create a constructor like the following:
-  const TestStruct(this.segmentView, this.dataSectionLengthInWords)
-      : assert(segmentView != null),
-        assert(dataSectionLengthInWords != null);
+  const TestStruct(this.segmentView, this.dataSectionLengthInWords);
 
   // Create a static method called `from`, which delegated to the above
   // constructor. (We use this because tear-offs don't work for named
@@ -102,9 +100,7 @@ class TestStruct {
 }
 
 class Foo {
-  const Foo(this.segmentView, this.dataSectionLengthInWords)
-      : assert(segmentView != null),
-        assert(dataSectionLengthInWords != null);
+  const Foo(this.segmentView, this.dataSectionLengthInWords);
 
   // ignore: prefer_constructors_over_static_methods
   static Foo from(SegmentView segmentView, int dataSectionLengthInWords) =>

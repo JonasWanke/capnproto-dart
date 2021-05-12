@@ -133,9 +133,7 @@ class ListPointer extends Pointer {
 
 class CompositeListPointer<T> extends ListPointer {
   CompositeListPointer.fromView(SegmentView segmentView, this.factory)
-      : assert(segmentView != null),
-        assert(factory != null),
-        super.fromView(segmentView) {
+      : super.fromView(segmentView) {
     assert(isCompositeList);
   }
   factory CompositeListPointer.resolvedFromView(
