@@ -96,7 +96,7 @@ class TestStruct {
   // This is optional:
   @override
   String toString() =>
-      'TestStruct(unit: <void>, boolean: $boolean, booleanList: $booleanList, int8: $int8, int16: $int16, int32: $int32, int64: $int64, uint8: $uint8, uint16: $uint16, uint16List: $uint16List, uint32: $uint32, uint64: $uint64, float32: $float32, float32List: $float32List, float64: $float64, text: $text, data: $data, foo: $foo, fooList: $fooList';
+      'TestStruct(unit: <void>, boolean: $boolean, booleanList: $booleanList, int8: $int8, int16: $int16, int32: $int32, int64: $int64, uint8: $uint8, uint16: $uint16, uint16List: $uint16List, uint32: $uint32, uint64: $uint64, float32: $float32, float32List: $float32List, float64: $float64, text: $text, data: $data, foo: $foo, fooList: $fooList)';
 }
 
 class Foo {
