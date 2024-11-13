@@ -1,10 +1,11 @@
 name: Build, Test & Lint
 
 on:
-  push:
   pull_request:
+  push:
+    branches: [main]
   schedule:
-    - cron: '0 4 * * *'
+    - cron: 0 4 * * 1
 
 jobs:
   test:
@@ -12,9 +13,9 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        sdk: [stable, beta, dev]
+        sdk: [stable, beta, dev, "3.4.0"]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - uses: dart-lang/setup-dart@v1
         with:
           sdk: ${{ matrix.sdk }}
@@ -25,56 +26,29 @@ jobs:
   coverage:
     name: Coverage
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        sdk: [stable, beta, dev]
-    if: 'false'
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - uses: dart-lang/setup-dart@v1
-        with:
-          sdk: ${{ matrix.sdk }}
       - run: dart pub get
 
-      - run: dart pub global activate coverage
-      - name: Collect coverage
-        run: dart pub run test_coverage
+      - run: dart pub global activate coverage ^1.0.0
+      - run: dart pub global run coverage:test_with_coverage
 
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v1
+      - uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   lint:
     name: Lint
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        sdk: [stable, beta, dev]
+        sdk: [stable, beta, dev, "3.4.0"]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - uses: dart-lang/setup-dart@v1
         with:
           sdk: ${{ matrix.sdk }}
       - run: dart pub get
 
-      - name: Run linter
-        run: dartanalyzer . > analyze_report.txt
-        continue-on-error: true
-
-      - name: Install ruby
-        uses: actions/setup-ruby@v1
-        if: github.event_name == 'pull_request'
-        with:
-          ruby-version: '2.6'
-      - name: Install ruby gems
-        run: |
-          gem install bundler
-          bundle install --without documentation
-        if: github.event_name == 'pull_request'
-      - name: Run danger on generated report
-        uses: MeilCli/danger-action@v1
-        if: github.event_name == 'pull_request'
-        with:
-          danger_file: Dangerfile
-          danger_id: 'danger-pr'
-        env:
-          DANGER_GITHUB_API_TOKEN: ${{ secrets.BOT_TOKEN }}
+      - run: dart analyze
