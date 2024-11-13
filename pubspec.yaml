@@ -4,6 +4,8 @@ version: 0.2.0
 homepage: https://github.com/JonasWanke/capnproto-dart
 
 environment:
+  # When updating this, also update the matrixes in
+  # `.github/workflows/build.yml`.
   sdk: ^3.4.2
 
 dependencies:
