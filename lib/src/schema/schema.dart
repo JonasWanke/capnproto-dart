@@ -23,6 +23,14 @@ class Node extends Struct {
   CompositeList<Annotation> get annotations =>
       reader.getCompositeList(2, Annotation.new);
   Node$union get union => Node$union(reader);
+
+  @override
+  String toString() {
+    return 'Node(id: $id, displayName: $displayName, '
+        'displayNamePrefixLength: $displayNamePrefixLength, scopeId: $scopeId, '
+        'parameters: $parameters, isGeneric: $isGeneric, '
+        'nestedNodes: $nestedNodes, annotations: $annotations, $union)';
+  }
 }
 
 sealed class Node$union extends Struct {
@@ -43,6 +51,9 @@ sealed class Node$union extends Struct {
 
 class Node$file extends Node$union {
   const Node$file(super.reader) : super._();
+
+  @override
+  String toString() => 'file: void';
 }
 
 class Node$struct extends Node$union {
@@ -57,6 +68,14 @@ class Node$struct extends Node$union {
   int get discriminantCount => reader.getUInt16(15);
   int get discriminantOffset => reader.getUInt32(6);
   CompositeList<Field> get fields => reader.getCompositeList(3, Field.new);
+
+  @override
+  String toString() {
+    return 'struct: (dataWordCount: $dataWordCount, readerCount: $readerCount, '
+        'preferredListEncoding: $preferredListEncoding, isGroup: $isGroup, '
+        'discriminantCount: $discriminantCount, '
+        'discriminantOffset: $discriminantOffset, fields: $fields)';
+  }
 }
 
 class Node$enum extends Node$union {
@@ -64,6 +83,9 @@ class Node$enum extends Node$union {
 
   CompositeList<Enumerant> get enumerants =>
       reader.getCompositeList(3, Enumerant.new);
+
+  @override
+  String toString() => 'enum: (enumerants: $enumerants)';
 }
 
 class Node$interface extends Node$union {
@@ -72,6 +94,10 @@ class Node$interface extends Node$union {
   List<Method> get methods => reader.getCompositeList(3, Method.new);
   List<Superclass> get superclasses =>
       reader.getCompositeList(4, Superclass.new);
+
+  @override
+  String toString() =>
+      'interface: (methods: $methods, superclasses: $superclasses)';
 }
 
 class Node$const extends Node$union {
@@ -79,6 +105,9 @@ class Node$const extends Node$union {
 
   Type get type => reader.getStruct(3, Type.new);
   Value get value => reader.getStruct(4, Value.new);
+
+  @override
+  String toString() => 'const: (type: $type, value: $value)';
 }
 
 class Node$annotation extends Node$union {
@@ -97,6 +126,17 @@ class Node$annotation extends Node$union {
   bool get targetsMethod => reader.getBool(121);
   bool get targetsParam => reader.getBool(122);
   bool get targetsAnnotation => reader.getBool(123);
+
+  @override
+  String toString() {
+    return 'annotation: (type: $type, targetsFile: $targetsFile, '
+        'targetsConst: $targetsConst, targetsEnum: $targetsEnum, '
+        'targetsEnumerant: $targetsEnumerant, targetsStruct: $targetsStruct, '
+        'targetsField: $targetsField, targetsUnion: $targetsUnion, '
+        'targetsGroup: $targetsGroup, targetsInterface: $targetsInterface, '
+        'targetsMethod: $targetsMethod, targetsParam: $targetsParam, '
+        'targetsAnnotation: $targetsAnnotation)';
+  }
 }
 
 // Node.Parameter
@@ -105,6 +145,9 @@ class Node$Parameter extends Struct {
   const Node$Parameter(super.reader);
 
   String get name => reader.getText(0);
+
+  @override
+  String toString() => 'Node.Parameter(name: $name)';
 }
 
 // Node.NestedNode
@@ -114,6 +157,9 @@ class Node$NestedNode extends Struct {
 
   String get name => reader.getText(0);
   int get id => reader.getUInt64(0);
+
+  @override
+  String toString() => 'Node.NestedNode(name: $name, id: $id)';
 }
 
 // Node.SourceInfo
@@ -125,6 +171,10 @@ class Node$SourceInfo extends Struct {
   String get docComment => reader.getText(0);
   CompositeList<Node$SourceInfo$Member> get members =>
       reader.getCompositeList(1, Node$SourceInfo$Member.new);
+
+  @override
+  String toString() =>
+      'Node.SourceInfo(id: $id, docComment: $docComment, members: $members)';
 }
 
 // Node.SourceInfo.Member
@@ -133,6 +183,9 @@ class Node$SourceInfo$Member extends Struct {
   const Node$SourceInfo$Member(super.reader);
 
   String get docComment => reader.getText(0);
+
+  @override
+  String toString() => 'Node.SourceInfo.Member(docComment: $docComment)';
 }
 
 // Field
@@ -146,6 +199,13 @@ class Field extends Struct {
       reader.getCompositeList(1, Annotation.new);
   int get discriminantValue => reader.getUInt16(0, defaultValue: 65535);
   Field$union get union => Field$union(reader);
+
+  @override
+  String toString() {
+    return 'Field(name: $name, codeOrder: $codeOrder, '
+        'annotations: $annotations, discriminantValue: $discriminantValue, '
+        '$union)';
+  }
 }
 
 sealed class Field$union extends Struct {
@@ -167,12 +227,21 @@ class Field$slot extends Field$union {
   Type get type => reader.getStruct(2, Type.new);
   Value get defaultValue => reader.getStruct(3, Value.new);
   bool get hadExplicitDefault => reader.getBool(128);
+
+  @override
+  String toString() {
+    return 'slot: (offset: $offset, type: $type, defaultValue: $defaultValue, '
+        'hadExplicitDefault: $hadExplicitDefault)';
+  }
 }
 
 class Field$group extends Field$union {
   const Field$group(super.reader) : super._();
 
   int get typeId => reader.getUInt64(2);
+
+  @override
+  String toString() => 'group: (typeId: $typeId)';
 }
 
 sealed class Field$ordinal extends Struct {
@@ -189,12 +258,18 @@ sealed class Field$ordinal extends Struct {
 
 class Field$ordinal$implicit extends Field$ordinal {
   const Field$ordinal$implicit(super.reader) : super._();
+
+  @override
+  String toString() => 'ordinal: (implicit: void)';
 }
 
 class Field$ordinal$explicit extends Field$ordinal {
   const Field$ordinal$explicit(super.reader) : super._();
 
   int get value => reader.getUInt16(6);
+
+  @override
+  String toString() => 'ordinal: (explicit: $value)';
 }
 
 // Enumerant
@@ -206,6 +281,10 @@ class Enumerant extends Struct {
   int get codeOrder => reader.getUInt16(0);
   CompositeList<Annotation> get annotations =>
       reader.getCompositeList(1, Annotation.new);
+
+  @override
+  String toString() => 'Enumerant(name: $name, codeOrder: $codeOrder, '
+      'annotations: $annotations)';
 }
 
 // Superclass
@@ -215,6 +294,9 @@ class Superclass extends Struct {
 
   int get id => reader.getUInt64(0);
   Brand get brand => reader.getStruct(0, Brand.new);
+
+  @override
+  String toString() => 'Superclass(id: $id, brand: $brand)';
 }
 
 // Method
@@ -232,6 +314,15 @@ class Method extends Struct {
   Brand get resultBrand => reader.getStruct(3, Brand.new);
   CompositeList<Annotation> get annotations =>
       reader.getCompositeList(1, Annotation.new);
+
+  @override
+  String toString() {
+    return 'Method(name: $name, codeOrder: $codeOrder, '
+        'implicitParameters: $implicitParameters, '
+        'paramStructType: $paramStructType, paramBrand: $paramBrand, '
+        'resultStructType: $resultStructType, resultBrand: $resultBrand, '
+        'annotations: $annotations)';
+  }
 }
 
 // Type
@@ -267,64 +358,109 @@ sealed class Type extends Struct {
 
 class Type$void extends Type {
   const Type$void(super.reader) : super._();
+
+  @override
+  String toString() => 'void: void';
 }
 
 class Type$bool extends Type {
   const Type$bool(super.reader) : super._();
+
+  @override
+  String toString() => 'bool: void';
 }
 
 class Type$int8 extends Type {
   const Type$int8(super.reader) : super._();
+
+  @override
+  String toString() => 'int8: void';
 }
 
 class Type$int16 extends Type {
   const Type$int16(super.reader) : super._();
+
+  @override
+  String toString() => 'int16: void';
 }
 
 class Type$int32 extends Type {
   const Type$int32(super.reader) : super._();
+
+  @override
+  String toString() => 'int32: void';
 }
 
 class Type$int64 extends Type {
   const Type$int64(super.reader) : super._();
+
+  @override
+  String toString() => 'int64: void';
 }
 
 class Type$uint8 extends Type {
   const Type$uint8(super.reader) : super._();
+
+  @override
+  String toString() => 'uint8: void';
 }
 
 class Type$uint16 extends Type {
   const Type$uint16(super.reader) : super._();
+
+  @override
+  String toString() => 'uint16: void';
 }
 
 class Type$uint32 extends Type {
   const Type$uint32(super.reader) : super._();
+
+  @override
+  String toString() => 'uint32: void';
 }
 
 class Type$uint64 extends Type {
   const Type$uint64(super.reader) : super._();
+
+  @override
+  String toString() => 'uint64: void';
 }
 
 class Type$float32 extends Type {
   const Type$float32(super.reader) : super._();
+
+  @override
+  String toString() => 'float32: void';
 }
 
 class Type$float64 extends Type {
   const Type$float64(super.reader) : super._();
+
+  @override
+  String toString() => 'float64: void';
 }
 
 class Type$text extends Type {
   const Type$text(super.reader) : super._();
+
+  @override
+  String toString() => 'text: void';
 }
 
 class Type$data extends Type {
   const Type$data(super.reader) : super._();
+
+  @override
+  String toString() => 'data: void';
 }
 
 class Type$list extends Type {
   const Type$list(super.reader) : super._();
 
   Type get elementType => reader.getStruct(0, Type.new);
+
+  @override
+  String toString() => 'list: (elementType: $elementType)';
 }
 
 class Type$enum extends Type {
@@ -332,6 +468,9 @@ class Type$enum extends Type {
 
   int get typeId => reader.getUInt64(1);
   Brand get brand => reader.getStruct(0, Brand.new);
+
+  @override
+  String toString() => 'enum: (typeId: $typeId, brand: $brand)';
 }
 
 class Type$struct extends Type {
@@ -339,6 +478,9 @@ class Type$struct extends Type {
 
   int get typeId => reader.getUInt64(1);
   Brand get brand => reader.getStruct(0, Brand.new);
+
+  @override
+  String toString() => 'struct: (typeId: $typeId, brand: $brand)';
 }
 
 class Type$interface extends Type {
@@ -346,6 +488,9 @@ class Type$interface extends Type {
 
   int get typeId => reader.getUInt64(1);
   Brand get brand => reader.getStruct(0, Brand.new);
+
+  @override
+  String toString() => 'interface: (typeId: $typeId, brand: $brand)';
 }
 
 sealed class Type$anyPointer extends Type {
@@ -378,20 +523,32 @@ sealed class Type$anyPointer$unconstrained extends Type$anyPointer {
 class Type$anyPointer$unconstrained$anyKind
     extends Type$anyPointer$unconstrained {
   const Type$anyPointer$unconstrained$anyKind(super.reader) : super._();
+
+  @override
+  String toString() => 'anyPointer: (unconstrained: (anyKind: void))';
 }
 
 class Type$anyPointer$unconstrained$struct
     extends Type$anyPointer$unconstrained {
   const Type$anyPointer$unconstrained$struct(super.reader) : super._();
+
+  @override
+  String toString() => 'anyPointer: (unconstrained: (struct: void))';
 }
 
 class Type$anyPointer$unconstrained$list extends Type$anyPointer$unconstrained {
   const Type$anyPointer$unconstrained$list(super.reader) : super._();
+
+  @override
+  String toString() => 'anyPointer: (unconstrained: (list: void))';
 }
 
 class Type$anyPointer$unconstrained$capability
     extends Type$anyPointer$unconstrained {
   const Type$anyPointer$unconstrained$capability(super.reader) : super._();
+
+  @override
+  String toString() => 'anyPointer: (unconstrained: (capability: void))';
 }
 
 class Type$anyPointer$parameter extends Type$anyPointer {
@@ -399,12 +556,19 @@ class Type$anyPointer$parameter extends Type$anyPointer {
 
   int get scopeId => reader.getUInt64(2);
   int get parameterIndex => reader.getUInt16(5);
+
+  @override
+  String toString() =>
+      'anyPointer: (parameter: $scopeId, parameterIndex: $parameterIndex)';
 }
 
 class Type$anyPointer$implicitMethodParameter extends Type$anyPointer {
   const Type$anyPointer$implicitMethodParameter(super.reader) : super._();
 
   int get parameterIndex => reader.getUInt16(5);
+
+  @override
+  String toString() => 'anyPointer: (implicitMethodParameter: $parameterIndex)';
 }
 
 // Brand
@@ -414,6 +578,9 @@ class Brand extends Struct {
 
   CompositeList<Brand$Scope> get scopes =>
       reader.getCompositeList(0, Brand$Scope.new);
+
+  @override
+  String toString() => 'Brand(scopes: $scopes)';
 }
 
 // Brand.Scope
@@ -423,6 +590,9 @@ class Brand$Scope extends Struct {
 
   int get scopeId => reader.getUInt64(0);
   Brand$Scope$union get union => Brand$Scope$union(reader);
+
+  @override
+  String toString() => 'Brand.Scope(scopeId: $scopeId, $union)';
 }
 
 sealed class Brand$Scope$union extends Struct {
@@ -442,10 +612,16 @@ class Brand$Scope$bind extends Brand$Scope$union {
 
   CompositeList<Brand$Binding> get bindings =>
       reader.getCompositeList(1, Brand$Binding.new);
+
+  @override
+  String toString() => 'bind: (bindings: $bindings)';
 }
 
 class Brand$Scope$inherit extends Brand$Scope$union {
   const Brand$Scope$inherit(super.reader) : super._();
+
+  @override
+  String toString() => 'inherit: void';
 }
 
 // Brand.Binding
@@ -464,12 +640,18 @@ sealed class Brand$Binding extends Struct {
 
 class Brand$Binding$unbound extends Brand$Binding {
   const Brand$Binding$unbound(super.reader) : super._();
+
+  @override
+  String toString() => 'unbound: void';
 }
 
 class Brand$Binding$type extends Brand$Binding {
   const Brand$Binding$type(super.reader) : super._();
 
   Type get type => reader.getStruct(0, Type.new);
+
+  @override
+  String toString() => 'type: (type: $type)';
 }
 
 // Value
@@ -505,96 +687,171 @@ sealed class Value extends Struct {
 
 class Value$void extends Value {
   const Value$void(super.reader) : super._();
+
+  @override
+  String toString() => 'void: void';
 }
 
 class Value$bool extends Value {
   const Value$bool(super.reader) : super._();
+
   bool get value => reader.getBool(16);
+
+  @override
+  String toString() => 'bool: $value';
 }
 
 class Value$int8 extends Value {
   const Value$int8(super.reader) : super._();
+
   int get value => reader.getInt8(2);
+
+  @override
+  String toString() => 'int8: $value';
 }
 
 class Value$int16 extends Value {
   const Value$int16(super.reader) : super._();
+
   int get value => reader.getInt16(1);
+
+  @override
+  String toString() => 'int16: $value';
 }
 
 class Value$int32 extends Value {
   const Value$int32(super.reader) : super._();
+
   int get value => reader.getInt32(1);
+
+  @override
+  String toString() => 'int32: $value';
 }
 
 class Value$int64 extends Value {
   const Value$int64(super.reader) : super._();
+
   int get value => reader.getInt64(1);
+
+  @override
+  String toString() => 'int64: $value';
 }
 
 class Value$uint8 extends Value {
   const Value$uint8(super.reader) : super._();
+
   int get value => reader.getUInt8(2);
+
+  @override
+  String toString() => 'uint8: $value';
 }
 
 class Value$uint16 extends Value {
   const Value$uint16(super.reader) : super._();
+
   int get value => reader.getUInt16(1);
+
+  @override
+  String toString() => 'uint16: $value';
 }
 
 class Value$uint32 extends Value {
   const Value$uint32(super.reader) : super._();
+
   int get value => reader.getUInt32(1);
+
+  @override
+  String toString() => 'uint32: $value';
 }
 
 class Value$uint64 extends Value {
   const Value$uint64(super.reader) : super._();
+
   int get value => reader.getUInt64(1);
+
+  @override
+  String toString() => 'uint64: $value';
 }
 
 class Value$float32 extends Value {
   const Value$float32(super.reader) : super._();
+
   double get value => reader.getFloat32(1);
+
+  @override
+  String toString() => 'float32: $value';
 }
 
 class Value$float64 extends Value {
   const Value$float64(super.reader) : super._();
+
   double get value => reader.getFloat64(1);
+
+  @override
+  String toString() => 'float64: $value';
 }
 
 class Value$text extends Value {
   const Value$text(super.reader) : super._();
+
   String get value => reader.getText(0);
+
+  @override
+  String toString() => 'text: $value';
 }
 
 class Value$data extends Value {
   const Value$data(super.reader) : super._();
+
   Uint8List get value => reader.getData(0);
+
+  @override
+  String toString() => 'data: $value';
 }
 
 class Value$list extends Value {
   const Value$list(super.reader) : super._();
+
   AnyPointer get value => reader.getPointer(0);
+
+  @override
+  String toString() => 'list: $value';
 }
 
 class Value$enum extends Value {
   const Value$enum(super.reader) : super._();
+
   int get value => reader.getUInt16(1);
+
+  @override
+  String toString() => 'enum: $value';
 }
 
 class Value$struct extends Value {
   const Value$struct(super.reader) : super._();
+
   AnyPointer get value => reader.getPointer(0);
+
+  @override
+  String toString() => 'struct: $value';
 }
 
 class Value$interface extends Value {
   const Value$interface(super.reader) : super._();
+
   AnyPointer get value => reader.getPointer(0);
+
+  @override
+  String toString() => 'interface: $value';
 }
 
 class Value$anyPointer extends Value {
   const Value$anyPointer(super.reader) : super._();
+
   AnyPointer get value => reader.getPointer(0);
+
+  @override
+  String toString() => 'anyPointer: $value';
 }
 
 // Annotation
@@ -605,6 +862,9 @@ class Annotation extends Struct {
   int get id => reader.getUInt64(0);
   Brand get brand => reader.getStruct(1, Brand.new);
   Value get value => reader.getStruct(0, Value.new);
+
+  @override
+  String toString() => 'Annotation(id: $id, brand: $brand, value: $value)';
 }
 
 // ElementSize
@@ -628,6 +888,10 @@ class CapnpVersion extends Struct {
   int get major => reader.getUInt16(0);
   int get minor => reader.getUInt8(2);
   int get micro => reader.getUInt8(3);
+
+  @override
+  String toString() =>
+      'CapnpVersion(major: $major, minor: $minor, micro: $micro)';
 }
 
 // CodeGeneratorRequest
@@ -641,6 +905,12 @@ class CodeGeneratorRequest extends Struct {
       reader.getCompositeList(3, Node$SourceInfo.new);
   CompositeList<CodeGeneratorRequest$RequestedFile> get requestedFiles =>
       reader.getCompositeList(1, CodeGeneratorRequest$RequestedFile.new);
+
+  @override
+  String toString() {
+    return 'CodeGeneratorRequest(capnpVersion: $capnpVersion, nodes: $nodes, '
+        'sourceInfo: $sourceInfo, requestedFiles: $requestedFiles)';
+  }
 }
 
 // CodeGeneratorRequest.RequestedFile
@@ -655,6 +925,12 @@ class CodeGeneratorRequest$RequestedFile extends Struct {
         0,
         CodeGeneratorRequest$RequestedFile$Import.new,
       );
+
+  @override
+  String toString() {
+    return 'CodeGeneratorRequest.RequestedFile(id: $id, '
+        'filename: $filename, imports: $imports)';
+  }
 }
 
 // CodeGeneratorRequest.RequestedFile.Import
@@ -664,4 +940,10 @@ class CodeGeneratorRequest$RequestedFile$Import extends Struct {
 
   int get id => reader.getUInt64(0);
   String get filename => reader.getText(0);
+
+  @override
+  String toString() {
+    return 'CodeGeneratorRequest.RequestedFile.Import(id: $id, '
+        'filename: $filename)';
+  }
 }
