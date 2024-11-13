@@ -10,5 +10,9 @@ dependencies:
   collection: ^1.15.0
 
 dev_dependencies:
-  extra_pedantic: ^1.3.0
+  supernova:
+    git:
+      url: https://github.com/JonasWanke/supernova.git
+      path: supernova
+      ref: f493a5092722288669aca81decbf7b00f528adca
   test: ^1.17.3
