@@ -22,8 +22,10 @@ class SegmentView {
   SegmentView._(this.segment, this.offsetInWords, this.lengthInWords)
       : assert(offsetInWords >= 0),
         assert(lengthInWords >= 0),
-        assert((offsetInWords + lengthInWords) * CapnpConstants.bytesPerWord <=
-            segment.lengthInBytes),
+        assert(
+          (offsetInWords + lengthInWords) * CapnpConstants.bytesPerWord <=
+              segment.lengthInBytes,
+        ),
         data = segment.data.buffer.asByteData(
           segment.data.offsetInBytes +
               offsetInWords * CapnpConstants.bytesPerWord,
@@ -64,104 +66,75 @@ class SegmentView {
   // TODO(JonasWanke): default values
 
   // Primitives:
-  void getVoid(int offsetInBytes) {}
-  bool getBool(int offsetInBits) {
-    final byte = data.getUint8(offsetInBits ~/ CapnpConstants.bitsPerByte);
-    final bitIndex = offsetInBits % CapnpConstants.bitsPerByte;
+  void getVoid() {}
+  bool getBool(int index) {
+    final byte = data.getUint8(index ~/ CapnpConstants.bitsPerByte);
+    final bitIndex = index % CapnpConstants.bitsPerByte;
     final bit = (byte >> bitIndex) & 1;
     return bit == 1;
   }
 
-  int getUInt8(int offsetInBytes) => data.getUint8(offsetInBytes);
-  int getUInt16(int offsetInBytes) =>
-      data.getUint16(offsetInBytes, Endian.little);
-  int getUInt32(int offsetInBytes) =>
-      data.getUint32(offsetInBytes, Endian.little);
-  int getUInt64(int offsetInBytes) =>
-      data.getUint64(offsetInBytes, Endian.little);
+  int getUInt8(int index, {int defaultValue = 0}) =>
+      data.getUint8(index) ^ defaultValue;
+  int getUInt16(int index, {int defaultValue = 0}) =>
+      data.getUint16(index * 2, Endian.little) ^ defaultValue;
+  int getUInt32(int index, {int defaultValue = 0}) =>
+      data.getUint32(index * 4, Endian.little) ^ defaultValue;
+  int getUInt64(int index, {int defaultValue = 0}) =>
+      data.getUint64(index * 8, Endian.little) ^ defaultValue;
 
-  int getInt8(int offsetInBytes) => data.getInt8(offsetInBytes);
-  int getInt16(int offsetInBytes) =>
-      data.getInt16(offsetInBytes, Endian.little);
-  int getInt32(int offsetInBytes) =>
-      data.getInt32(offsetInBytes, Endian.little);
-  int getInt64(int offsetInBytes) =>
-      data.getInt64(offsetInBytes, Endian.little);
+  int getInt8(int index, {int defaultValue = 0}) =>
+      data.getInt8(index) ^ defaultValue;
+  int getInt16(int index, {int defaultValue = 0}) =>
+      data.getInt16(index * 2, Endian.little) ^ defaultValue;
+  int getInt32(int index, {int defaultValue = 0}) =>
+      data.getInt32(index * 4, Endian.little) ^ defaultValue;
+  int getInt64(int index, {int defaultValue = 0}) =>
+      data.getInt64(index * 8, Endian.little) ^ defaultValue;
 
-  double getFloat32(int offsetInBytes) =>
-      data.getFloat32(offsetInBytes, Endian.little);
-  double getFloat64(int offsetInBytes) =>
-      data.getFloat64(offsetInBytes, Endian.little);
+  double getFloat32(int index) => data.getFloat32(index * 4, Endian.little);
+  double getFloat64(int index) => data.getFloat64(index * 8, Endian.little);
 
   String getText(int offsetInWords) {
     final pointer = ListPointer.resolvedFromView(subview(offsetInWords, 1));
     return Text(pointer).value;
   }
 
-  UnmodifiableUint8ListView getData(int offsetInWords) {
+  Uint8List getData(int offsetInWords) {
     final pointer = ListPointer.resolvedFromView(subview(offsetInWords, 1));
     return CapnpUInt8List(pointer).value;
   }
 
   // Nested structs:
-  T getStruct<T>(int offsetInWords, StructFactory<T> factory) {
-    final pointer = StructPointer.resolvedFromView(subview(offsetInWords, 1));
-    return factory(pointer.structView, pointer.dataSectionLengthInWords);
-  }
+  T getStruct<T>(int offsetInWords, StructFactory<T> factory) =>
+      factory(StructPointer.resolvedFromView(subview(offsetInWords, 1)).reader);
 
   // Lists of primitives:
-  UnmodifiableBoolListView getBoolList(int offsetInWords) {
-    final pointer = ListPointer.resolvedFromView(subview(offsetInWords, 1));
-    return CapnpBoolList(pointer).value;
-  }
-
-  UnmodifiableUint8ListView getUInt8List(int offsetInWords) {
-    final pointer = ListPointer.resolvedFromView(subview(offsetInWords, 1));
-    return CapnpUInt8List(pointer).value;
-  }
-
-  UnmodifiableUint16ListView getUInt16List(int offsetInWords) {
-    final pointer = ListPointer.resolvedFromView(subview(offsetInWords, 1));
-    return CapnpUInt16List(pointer).value;
-  }
-
-  UnmodifiableUint32ListView getUInt32List(int offsetInWords) {
-    final pointer = ListPointer.resolvedFromView(subview(offsetInWords, 1));
-    return CapnpUInt32List(pointer).value;
-  }
-
-  UnmodifiableUint64ListView getUInt64List(int offsetInWords) {
-    final pointer = ListPointer.resolvedFromView(subview(offsetInWords, 1));
-    return CapnpUInt64List(pointer).value;
-  }
-
-  UnmodifiableInt8ListView getInt8List(int offsetInWords) {
-    final pointer = ListPointer.resolvedFromView(subview(offsetInWords, 1));
-    return CapnpInt8List(pointer).value;
-  }
-
-  UnmodifiableInt16ListView getInt16List(int offsetInWords) {
-    final pointer = ListPointer.resolvedFromView(subview(offsetInWords, 1));
-    return CapnpInt16List(pointer).value;
-  }
-
-  UnmodifiableInt32ListView getInt32List(int offsetInWords) {
-    final pointer = ListPointer.resolvedFromView(subview(offsetInWords, 1));
-    return CapnpInt32List(pointer).value;
-  }
-
-  UnmodifiableInt64ListView getInt64List(int offsetInWords) {
-    final pointer = ListPointer.resolvedFromView(subview(offsetInWords, 1));
-    return CapnpInt64List(pointer).value;
-  }
-
-  UnmodifiableFloat32ListView getFloat32List(int offsetInWords) {
-    final pointer = ListPointer.resolvedFromView(subview(offsetInWords, 1));
-    return CapnpFloat32List(pointer).value;
-  }
+  ListPointer _listPointer(int offsetInWords) =>
+      ListPointer.resolvedFromView(subview(offsetInWords, 1));
+  BoolList getBoolList(int offsetInWords) =>
+      CapnpBoolList(_listPointer(offsetInWords)).value;
+  Uint8List getUInt8List(int offsetInWords) =>
+      CapnpUInt8List(_listPointer(offsetInWords)).value;
+  Uint16List getUInt16List(int offsetInWords) =>
+      CapnpUInt16List(_listPointer(offsetInWords)).value;
+  Uint32List getUInt32List(int offsetInWords) =>
+      CapnpUInt32List(_listPointer(offsetInWords)).value;
+  Uint64List getUInt64List(int offsetInWords) =>
+      CapnpUInt64List(_listPointer(offsetInWords)).value;
+  Int8List getInt8List(int offsetInWords) =>
+      CapnpInt8List(_listPointer(offsetInWords)).value;
+  Int16List getInt16List(int offsetInWords) =>
+      CapnpInt16List(_listPointer(offsetInWords)).value;
+  Int32List getInt32List(int offsetInWords) =>
+      CapnpInt32List(_listPointer(offsetInWords)).value;
+  Int64List getInt64List(int offsetInWords) =>
+      CapnpInt64List(_listPointer(offsetInWords)).value;
+  Float32List getFloat32List(int offsetInWords) =>
+      CapnpFloat32List(_listPointer(offsetInWords)).value;
 
   // Complex types:
-  UnmodifiableCompositeListView<T> getCompositeList<T>(
+  CompositeList<T> getCompositeList<T>(
     int offsetInWords,
     StructFactory<T> factory,
   ) {
@@ -169,7 +142,7 @@ class SegmentView {
       subview(offsetInWords, 1),
       factory,
     );
-    return UnmodifiableCompositeListView(CompositeList.fromPointer(pointer));
+    return CompositeList(pointer);
   }
   // Enum<T> getEnum<T>(int offset) {}
   // T getStruct<T>(int offset) {}

@@ -27,7 +27,6 @@ class Message {
     return message;
   }
 
-  // ignore: prefer_collection_literals, Literals create an unmodifiable list.
   Message._() : _segments = <Segment>[];
 
   final List<Segment> _segments;
@@ -42,7 +41,6 @@ class Message {
   T getRoot<T>(StructFactory<T> factory) {
     assert(segments.isNotEmpty);
 
-    final pointer = StructPointer.inSegment(segments.first, 0);
-    return pointer.load(factory);
+    return factory(StructPointer.inSegment(segments.first, 0).reader);
   }
 }

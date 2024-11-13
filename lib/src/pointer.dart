@@ -5,16 +5,16 @@ import 'segment.dart';
 
 enum PointerType { struct, list, interSegment, capability }
 
-typedef _PointerFactory<P extends Pointer> = P Function(
+typedef PointerFactory<P extends AnyPointer> = P Function(
   SegmentView segmentView,
 );
 
-abstract class Pointer {
-  Pointer(this.segmentView)
+abstract class AnyPointer {
+  AnyPointer(this.segmentView)
       : assert(segmentView.lengthInWords == lengthInWords);
-  static P resolvedFromSegmentView<P extends Pointer>(
+  static P resolvedFromSegmentView<P extends AnyPointer>(
     SegmentView segmentView,
-    _PointerFactory<P> factory,
+    PointerFactory<P> factory,
   ) {
     while (typeOf(segmentView) == PointerType.interSegment) {
       segmentView = InterSegmentPointer.fromView(segmentView).target;
@@ -23,20 +23,17 @@ abstract class Pointer {
   }
 
   static PointerType typeOf(SegmentView segmentView) {
-    assert(segmentView.lengthInWords == Pointer.lengthInWords);
+    assert(segmentView.lengthInWords == AnyPointer.lengthInWords);
     final rawType = segmentView.getUInt8(0) & 0x3;
-    switch (rawType) {
-      case 0x00:
-        return PointerType.struct;
-      case 0x01:
-        return PointerType.list;
-      case 0x02:
-        return PointerType.interSegment;
-      case 0x03:
-        throw StateError('Capability pointers are not yet supported.');
-      default:
-        throw FormatException("Unsigned 2-bit number can't be outside 0 – 3.");
-    }
+    return switch (rawType) {
+      0x00 => PointerType.struct,
+      0x01 => PointerType.list,
+      0x02 => PointerType.interSegment,
+      0x03 => throw StateError('Capability pointers are not yet supported.'),
+      _ => throw const FormatException(
+          "Unsigned 2-bit number can't be outside 0 – 3.",
+        ),
+    };
   }
 
   static const lengthInWords = 1;
@@ -44,23 +41,22 @@ abstract class Pointer {
   final SegmentView segmentView;
 }
 
-class StructPointer extends Pointer {
+class StructPointer extends AnyPointer {
   factory StructPointer.inSegment(Segment segment, int offsetInWords) =>
       StructPointer.fromView(segment.view(offsetInWords, 1));
-  StructPointer.fromView(SegmentView segmentView)
-      : assert(Pointer.typeOf(segmentView) == PointerType.struct),
-        super(segmentView);
+  StructPointer.fromView(super.segmentView)
+      : assert(AnyPointer.typeOf(segmentView) == PointerType.struct);
   factory StructPointer.resolvedFromView(SegmentView segmentView) {
-    return Pointer.resolvedFromSegmentView(
+    return AnyPointer.resolvedFromSegmentView(
       segmentView,
-      (it) => StructPointer.fromView(it),
+      StructPointer.fromView,
     );
   }
 
   int get offsetInWords => segmentView.getInt32(0) >> 2;
 
-  int get dataSectionLengthInWords => segmentView.getUInt16(4);
-  int get pointerSectionLengthInWords => segmentView.getUInt16(6);
+  int get dataSectionLengthInWords => segmentView.getUInt16(2);
+  int get pointerSectionLengthInWords => segmentView.getUInt16(3);
 
   SegmentView get structView {
     return segmentView.viewRelativeToEnd(
@@ -69,19 +65,17 @@ class StructPointer extends Pointer {
     );
   }
 
-  T load<T>(StructFactory<T> factory) =>
-      factory(structView, dataSectionLengthInWords);
+  StructReader get reader => StructReader(structView, dataSectionLengthInWords);
 }
 
 /// https://capnproto.org/encoding.html#lists
-class ListPointer extends Pointer {
-  ListPointer.fromView(SegmentView segmentView)
-      : assert(Pointer.typeOf(segmentView) == PointerType.list),
-        super(segmentView);
+class ListPointer extends AnyPointer {
+  ListPointer.fromView(super.segmentView)
+      : assert(AnyPointer.typeOf(segmentView) == PointerType.list);
   factory ListPointer.resolvedFromView(SegmentView segmentView) {
-    return Pointer.resolvedFromSegmentView(
+    return AnyPointer.resolvedFromSegmentView(
       segmentView,
-      (it) => ListPointer.fromView(it),
+      ListPointer.fromView,
     );
   }
 
@@ -90,29 +84,20 @@ class ListPointer extends Pointer {
   int get _rawElementSize => segmentView.getUInt8(4) & 0x07;
   bool get isCompositeList => _rawElementSize == 7;
   int get elementSizeInBits {
-    switch (_rawElementSize) {
-      case 0:
-        return 0;
-      case 1:
-        return 1;
-      case 2:
-        return 1 * CapnpConstants.bitsPerByte;
-      case 3:
-        return 2 * CapnpConstants.bitsPerByte;
-      case 4:
-        return 4 * CapnpConstants.bitsPerByte;
-      case 5:
-      case 6:
-        return 8 * CapnpConstants.bitsPerByte;
-      case 7:
-        // TODO(JonasWanke): Better return value for composite lists?
-        return -1;
-      default:
-        throw StateError("Unsigned 3-bit number can't be outside 0 – 7.");
-    }
+    return switch (_rawElementSize) {
+      0 => 0,
+      1 => 1,
+      2 => 1 * CapnpConstants.bitsPerByte,
+      3 => 2 * CapnpConstants.bitsPerByte,
+      4 => 4 * CapnpConstants.bitsPerByte,
+      5 || 6 => 8 * CapnpConstants.bitsPerByte,
+      // TODO(JonasWanke): Better return value for composite lists
+      7 => -1,
+      _ => throw StateError("Unsigned 3-bit number can't be outside 0 – 7."),
+    };
   }
 
-  int get _rawListSize => segmentView.getUInt32(4) >> 3;
+  int get _rawListSize => segmentView.getUInt32(1) >> 3;
   int get elementCount {
     assert(!isCompositeList);
     return _rawListSize;
@@ -132,15 +117,15 @@ class ListPointer extends Pointer {
 }
 
 class CompositeListPointer<T> extends ListPointer {
-  CompositeListPointer.fromView(SegmentView segmentView, this.factory)
-      : super.fromView(segmentView) {
+  CompositeListPointer.fromView(super.segmentView, this.factory)
+      : super.fromView() {
     assert(isCompositeList);
   }
   factory CompositeListPointer.resolvedFromView(
     SegmentView segmentView,
     StructFactory<T> factory,
   ) {
-    return Pointer.resolvedFromSegmentView(
+    return AnyPointer.resolvedFromSegmentView(
       segmentView,
       (it) => CompositeListPointer.fromView(it, factory),
     );
@@ -152,16 +137,15 @@ class CompositeListPointer<T> extends ListPointer {
   SegmentView get targetView =>
       segmentView.viewRelativeToEnd(offsetInWords, wordCount);
 
-  CompositeList<T> get value => CompositeList.fromPointer(this);
+  CompositeList<T> get value => CompositeList(this);
 }
 
 /// https://capnproto.org/encoding.html#inter-segment-pointers
-class InterSegmentPointer extends Pointer {
-  InterSegmentPointer.fromView(SegmentView segmentView)
-      : assert(Pointer.typeOf(segmentView) == PointerType.interSegment),
+class InterSegmentPointer extends AnyPointer {
+  InterSegmentPointer.fromView(super.segmentView)
+      : assert(AnyPointer.typeOf(segmentView) == PointerType.interSegment),
         // TODO(JonasWanke): support other variant
-        assert(segmentView.getUInt8(0) & 0x4 == 0x00),
-        super(segmentView);
+        assert(segmentView.getUInt8(0) & 0x4 == 0x00);
 
   int get offsetInWords => segmentView.getUInt32(0) >> 3;
   int get targetSegmentId => segmentView.getUInt32(4);
