@@ -6,6 +6,7 @@ import 'package:oxidized/oxidized.dart';
 import '../constants.dart';
 import '../data.dart';
 import '../error.dart';
+import '../serialize.dart';
 import '../text.dart';
 import 'arena.dart';
 
@@ -86,7 +87,7 @@ final class WirePointer {
     assert(segment.buffer == data.buffer);
 
     final target = data.offsetInBytes +
-        (1 + _offsetAndKind >> 2) * CapnpConstants.bytesPerWord -
+        (1 + (_offsetAndKind >> 2)) * CapnpConstants.bytesPerWord -
         segment.offsetInBytes;
     return arena.checkOffset(segmentId, target).map((_) => target);
   }
@@ -403,7 +404,7 @@ class PointerReader {
             elementSize: elementSize,
             length: elementCount,
             stepInBits: wordsPerElement * CapnpConstants.bitsPerWord,
-            structDataSizeBits: dataSize * CapnpConstants.bitsPerByte,
+            structDataSizeBits: dataSize * CapnpConstants.bitsPerWord,
             structPointerCount: pointerCount,
             nestingLimit: nestingLimit - 1,
           ),
@@ -762,7 +763,7 @@ class StructReader {
     return PointerReader._(
       arena,
       segmentId,
-      WirePointer.fromSegment(pointers, index),
+      WirePointer.fromSegment(pointers, index * CapnpConstants.bytesPerPointer),
       nestingLimit: nestingLimit,
     );
   }
