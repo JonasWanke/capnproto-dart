@@ -1,6 +1,6 @@
 import 'package:oxidized/oxidized.dart';
 
-import 'private/arena.dart';
+import 'serialize.dart';
 
 /// An enum value or union discriminant that was not found among those defined
 /// in a schema.
@@ -18,6 +18,22 @@ typedef CapnpResult<T> = Result<T, CapnpError>;
 
 sealed class CapnpError {
   const CapnpError();
+}
+
+class PrematureEndOfFileCapnpError extends CapnpError {
+  const PrematureEndOfFileCapnpError();
+}
+
+class InvalidNumberOfSegmentsCapnpError extends CapnpError {
+  const InvalidNumberOfSegmentsCapnpError(this.segmentCount);
+
+  final int segmentCount;
+}
+
+class MessageTooLargeCapnpError extends CapnpError {
+  const MessageTooLargeCapnpError(this.totalWords);
+
+  final int totalWords;
 }
 
 class InvalidSegmentIdCapnpError extends CapnpError {

@@ -24,7 +24,8 @@ class StructListReader<T> extends Iterable<T> {
   final FromStructReader<T> fromStruct;
 
   @override
-  Iterator<T> get iterator => throw UnimplementedError();
+  Iterator<T> get iterator =>
+      Iterable.generate(length, (index) => this[index]).iterator;
 
   @override
   int get length => reader.length;

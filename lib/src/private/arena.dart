@@ -5,12 +5,8 @@ import 'package:oxidized/oxidized.dart';
 import '../constants.dart';
 import '../error.dart';
 import '../message.dart';
+import '../serialize.dart';
 import 'read_limiter.dart';
-
-// ignore: avoid-unused-parameters
-extension type const SegmentId(int index) {
-  static const zero = SegmentId(0);
-}
 
 abstract class ReaderArena {
   const ReaderArena();
@@ -28,19 +24,18 @@ abstract class ReaderArena {
 
 class ReaderArenaImpl extends ReaderArena {
   ReaderArenaImpl(this._segments, ReaderOptions options)
-      : readLimiter = ReadLimiter(options.traversalLimitInWords),
+      : readLimiter = ReadLimiter(options.traversalLimitWords),
         nestingLimit = options.nestingLimit;
 
-  final List<ByteData> _segments;
+  final Segments _segments;
   final ReadLimiter readLimiter;
   final int nestingLimit;
 
   @override
   CapnpResult<ByteData> getSegment(SegmentId id) {
-    if (id.index < 0 || id.index >= _segments.length) {
-      return Err(InvalidSegmentIdCapnpError(id));
-    }
-    return Ok(_segments[id.index]);
+    final segment = _segments.getSegment(id);
+    if (segment == null) return Err(InvalidSegmentIdCapnpError(id));
+    return Ok(segment);
   }
 
   @override

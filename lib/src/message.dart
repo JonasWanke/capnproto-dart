@@ -6,13 +6,14 @@ import 'any_pointer.dart';
 import 'error.dart';
 import 'private/arena.dart';
 import 'private/layout.dart';
+import 'serialize.dart';
 
 @immutable
 class ReaderOptions {
   const ReaderOptions({
-    this.traversalLimitInWords = 8 * 1024 * 1024,
+    this.traversalLimitWords = 8 * 1024 * 1024,
     this.nestingLimit = 64,
-  })  : assert(traversalLimitInWords == null || traversalLimitInWords > 0),
+  })  : assert(traversalLimitWords == null || traversalLimitWords > 0),
         assert(nestingLimit > 0);
 
   /// Limits how many total (8-byte) words of data are allowed to be traversed.
@@ -35,7 +36,7 @@ class ReaderOptions {
   /// anyway), this should provide adequate protection without inconvenience.
   ///
   /// A traversal limit of `null` means that no limit is enforced.
-  final int? traversalLimitInWords;
+  final int? traversalLimitWords;
 
   /// Limits how deeply nested a message structure can be, e.g., structs
   /// containing other structs or lists of structs.
@@ -52,24 +53,24 @@ class ReaderOptions {
   @override
   bool operator ==(Object other) {
     return other is ReaderOptions &&
-        other.traversalLimitInWords == traversalLimitInWords &&
+        other.traversalLimitWords == traversalLimitWords &&
         other.nestingLimit == nestingLimit;
   }
 
   @override
-  int get hashCode => Object.hash(traversalLimitInWords, nestingLimit);
+  int get hashCode => Object.hash(traversalLimitWords, nestingLimit);
 
   @override
   String toString() {
-    return 'ReaderOptions(traversalLimitInWords: $traversalLimitInWords, '
+    return 'ReaderOptions(traversalLimitWords: $traversalLimitWords, '
         'nestingLimit: $nestingLimit)';
   }
 }
 
 /// A container used to read a message.
-class Reader {
-  Reader(
-    List<ByteData> segments, {
+class MessageReader {
+  MessageReader(
+    Segments segments, {
     ReaderOptions options = const ReaderOptions(),
   }) : _arena = ReaderArenaImpl(segments, options);
 
