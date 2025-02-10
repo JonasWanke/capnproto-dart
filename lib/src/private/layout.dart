@@ -4,7 +4,9 @@ import 'package:meta/meta.dart';
 import 'package:oxidized/oxidized.dart';
 
 import '../constants.dart';
+import '../data.dart';
 import '../error.dart';
+import '../text.dart';
 import 'arena.dart';
 
 /// Size of a list element.
@@ -55,21 +57,22 @@ final class WirePointer {
           CapnpConstants.bytesPerPointer,
         );
 
-  static final zero = WirePointer(ByteData(CapnpConstants.bytesPerPointer));
+  static final nullPointer =
+      WirePointer(ByteData(CapnpConstants.bytesPerPointer));
 
   final ByteData data;
   int get _offsetAndKind => data.getUint32(0, Endian.little);
   int get _upper32Bits => data.getUint32(4, Endian.little);
 
-  bool get isZero => _offsetAndKind == 0 && _upper32Bits == 0;
+  bool get isNull => _offsetAndKind == 0 && _upper32Bits == 0;
 
-  WirePointerKind get kind => WirePointerKind.from(_offsetAndKind & 3);
+  WirePointerKind get kind => WirePointerKind.values[_offsetAndKind & 3];
 
   /// Matches [WirePointerKind.struct] and [WirePointerKind.list], but not
   /// [WirePointerKind.far] and [WirePointerKind.other].
   bool get isPositional => _offsetAndKind & 2 == 0;
 
-  Result<int, CapnpError> _targetFromSegment(
+  CapnpResult<int> _targetFromSegment(
     ReaderArena arena,
     SegmentId segmentId,
   ) {
@@ -104,6 +107,20 @@ final class WirePointer {
     assert(kind == WirePointerKind.struct);
     return structDataSize + structPointerCount * CapnpConstants.wordsPerPointer;
   }
+
+  // List
+
+  ElementSize get listElementSize {
+    assert(kind == WirePointerKind.list);
+    return ElementSize.values[_upper32Bits & 7];
+  }
+
+  int get listElementCount {
+    assert(kind == WirePointerKind.list);
+    return _upper32Bits >> 3;
+  }
+
+  int get listInlineCompositeWordCount => listElementCount;
 
   // Far Pointer
 
@@ -141,38 +158,26 @@ final class WirePointer {
   }
 }
 
-enum WirePointerKind {
-  struct,
-  list,
-  far,
-  other;
-
-  factory WirePointerKind.from(int value) {
-    return switch (value) {
-      0 => WirePointerKind.struct,
-      1 => WirePointerKind.list,
-      2 => WirePointerKind.far,
-      3 => WirePointerKind.other,
-      _ => throw ArgumentError.value(
-          value,
-          'value',
-          'Invalid WirePointerKind value',
-        ),
-    };
-  }
-}
+enum WirePointerKind { struct, list, far, other }
 
 enum PointerType { null_, struct, list, capability }
 
 class PointerReader {
   PointerReader._(
     this.arena,
-    this.pointer,
-    this.segmentId, {
+    this.segmentId,
+    this.pointer, {
     required this.nestingLimit,
   });
 
-  static Result<PointerReader, CapnpError> getRoot(
+  static final defaultReader = PointerReader._(
+    const NullArena(),
+    SegmentId.zero,
+    WirePointer.nullPointer,
+    nestingLimit: 0x7fffffff,
+  );
+
+  static CapnpResult<PointerReader> getRoot(
     ReaderArena arena,
     SegmentId segmentId, {
     required int location,
@@ -192,8 +197,8 @@ class PointerReader {
         .map(
           (pointer) => PointerReader._(
             arena,
-            pointer,
             segmentId,
+            pointer,
             nestingLimit: nestingLimit,
           ),
         );
@@ -204,7 +209,9 @@ class PointerReader {
   final SegmentId segmentId;
   final int nestingLimit;
 
-  Result<StructReader, CapnpError> getStruct(ByteData? defaultValue) {
+  bool get isNull => pointer.isNull;
+
+  CapnpResult<StructReader> getStruct(ByteData? defaultValue) {
     assert(
       defaultValue == null ||
           defaultValue.lengthInBytes == CapnpConstants.bytesPerPointer,
@@ -213,11 +220,11 @@ class PointerReader {
     var arena = this.arena;
     var segmentId = this.segmentId;
     var reff = pointer;
-    if (reff.isZero) {
+    if (reff.isNull) {
       if (defaultValue == null) return Ok(StructReader.defaultReader);
 
       reff = WirePointer(defaultValue);
-      if (reff.isZero) return Ok(StructReader.defaultReader);
+      if (reff.isNull) return Ok(StructReader.defaultReader);
 
       arena = const NullArena();
       segmentId = SegmentId.zero;
@@ -245,23 +252,140 @@ class PointerReader {
     }
 
     final ByteData data;
-    switch (arena.getInterval(segmentId, start, reff.structWordSize)) {
+    switch (arena.getInterval(segmentId, start, reff.structDataSize)) {
       case Ok(:final value):
         data = value;
       case Err(:final error):
         return Err(error);
     }
 
-    final dataSizeWords = reff.structDataSize;
+    final ByteData pointers;
+    switch (arena.getInterval(
+      segmentId,
+      start + data.lengthInBytes,
+      reff.structPointerCount,
+    )) {
+      case Ok(:final value):
+        pointers = value;
+      case Err(:final error):
+        return Err(error);
+    }
+
     return Ok(
       StructReader._(
         arena,
-        data,
-        dataSizeBits: dataSizeWords * CapnpConstants.bitsPerWord,
-        pointerCount: reff.structPointerCount,
+        segmentId,
+        data: data,
+        pointers: pointers,
         nestingLimit: nestingLimit - 1,
       ),
     );
+  }
+
+  CapnpResult<TextReader> getText(ByteData? defaultValue) {
+    assert(
+      defaultValue == null ||
+          defaultValue.lengthInBytes == CapnpConstants.bytesPerPointer,
+    );
+
+    var arena = this.arena;
+    var segmentId = this.segmentId;
+    var reff = pointer;
+    if (reff.isNull) {
+      if (defaultValue == null) return Ok(TextReader(Uint8List(0)));
+
+      reff = WirePointer(defaultValue);
+      arena = const NullArena();
+      segmentId = SegmentId.zero;
+    }
+
+    final int start;
+    switch (_followFars(arena, reff, segmentId)) {
+      case Ok(value: (final reffValue, final segmentIdValue, final startValue)):
+        reff = reffValue;
+        segmentId = segmentIdValue;
+        start = startValue;
+      case Err(:final error):
+        return Err(error);
+    }
+
+    if (reff.kind != WirePointerKind.list) {
+      return const Err(
+        MessageContainsNonListPointerWhereTextWasExpectedCapnpError(),
+      );
+    }
+    if (reff.listElementSize != ElementSize.byte) {
+      return const Err(
+        MessageContainsListPointerOfNonBytesWhereTextWasExpectedCapnpError(),
+      );
+    }
+
+    final size = reff.listElementCount;
+    final ByteData data;
+    switch (arena.getInterval(segmentId, start, _roundBytesUpToWords(size))) {
+      case Ok(:final value):
+        data = value;
+      case Err(:final error):
+        return Err(error);
+    }
+
+    if (size == 0 || data.getUint8(size - 1) != 0) {
+      return const Err(MessageContainsTextThatIsNotNULTerminatedCapnpError());
+    }
+
+    return Ok(
+      TextReader(data.buffer.asUint8List(data.offsetInBytes, size - 1)),
+    );
+  }
+
+  CapnpResult<DataReader> getData(ByteData? defaultValue) {
+    assert(
+      defaultValue == null ||
+          defaultValue.lengthInBytes == CapnpConstants.bytesPerPointer,
+    );
+
+    var arena = this.arena;
+    var segmentId = this.segmentId;
+    var reff = pointer;
+    if (reff.isNull) {
+      if (defaultValue == null) return Ok(DataReader(ByteData(0)));
+
+      reff = WirePointer(defaultValue);
+      arena = const NullArena();
+      segmentId = SegmentId.zero;
+    }
+
+    final int start;
+    switch (_followFars(arena, reff, segmentId)) {
+      case Ok(value: (final reffValue, final segmentIdValue, final startValue)):
+        reff = reffValue;
+        segmentId = segmentIdValue;
+        start = startValue;
+      case Err(:final error):
+        return Err(error);
+    }
+
+    if (reff.kind != WirePointerKind.list) {
+      return const Err(
+        MessageContainsNonListPointerWhereDataWasExpectedCapnpError(),
+      );
+    }
+    if (reff.listElementSize != ElementSize.byte) {
+      return const Err(
+        MessageContainsListPointerOfNonBytesWhereDataWasExpectedCapnpError(),
+      );
+    }
+
+    final size = reff.listElementCount;
+    final ByteData data;
+    switch (arena.getInterval(segmentId, start, _roundBytesUpToWords(size))) {
+      case Ok(:final value):
+        data = value;
+      case Err(:final error):
+        return Err(error);
+    }
+
+    return Ok(DataReader(data.buffer.asByteData(data.offsetInBytes, size)));
   }
 }
 
@@ -271,7 +395,7 @@ class PointerReader {
 ///   than [WirePointerKind.far]
 /// - the ID of the segment on which the pointed-to object lives
 /// - the offset of the pointed-to object in its segment
-Result<(WirePointer, SegmentId, int), CapnpError> _followFars(
+CapnpResult<(WirePointer, SegmentId, int)> _followFars(
   ReaderArena arena,
   WirePointer reff,
   SegmentId segmentId,
@@ -314,24 +438,30 @@ Result<(WirePointer, SegmentId, int), CapnpError> _followFars(
 class StructReader {
   StructReader._(
     this.arena,
-    this.data, {
-    required this.dataSizeBits,
-    required this.pointerCount,
+    this.segmentId, {
+    required this.data,
+    required this.pointers,
     required this.nestingLimit,
   });
 
   static final defaultReader = StructReader._(
     const NullArena(),
-    ByteData(0),
-    dataSizeBits: 0,
-    pointerCount: 0,
+    SegmentId.zero,
+    data: ByteData(0),
+    pointers: ByteData(0),
     nestingLimit: 0x7fffffff,
   );
 
   final ReaderArena arena;
+  final SegmentId segmentId;
+
   final ByteData data;
-  final int dataSizeBits;
-  final int pointerCount;
+  int get dataSize => data.lengthInBytes;
+
+  final ByteData pointers;
+  int get pointerCount =>
+      pointers.lengthInBytes ~/ CapnpConstants.bytesPerPointer;
+
   final int nestingLimit;
 
   // We need to check the indexes because the struct may have been created with
@@ -340,7 +470,7 @@ class StructReader {
   // ignore: avoid_positional_boolean_parameters
   bool getBool(int index, bool mask) {
     assert(index >= 0);
-    if (index > dataSizeBits) return mask;
+    if (index > dataSize) return mask;
 
     final byte = data.getInt8(index ~/ CapnpConstants.bitsPerByte);
     final value = byte & (1 << (index % CapnpConstants.bitsPerByte)) != 0;
@@ -351,49 +481,49 @@ class StructReader {
 
   int getInt8(int index, int mask) {
     assert(index >= 0);
-    if (index * 8 > dataSizeBits) return mask;
+    if (index > dataSize) return mask;
     return data.getInt8(index) ^ mask;
   }
 
   int getUint8(int index, int mask) {
     assert(index >= 0);
-    if (index * 8 > dataSizeBits) return mask;
+    if (index > dataSize) return mask;
     return data.getUint8(index) ^ mask;
   }
 
   int getInt16(int index, int mask) {
     assert(index >= 0);
-    if (index * 16 > dataSizeBits) return mask;
+    if (index * 2 > dataSize) return mask;
     return data.getInt16(index * 2, Endian.little) ^ mask;
   }
 
   int getUint16(int index, int mask) {
     assert(index >= 0);
-    if (index * 16 > dataSizeBits) return mask;
+    if (index * 2 > dataSize) return mask;
     return data.getUint16(index * 2, Endian.little) ^ mask;
   }
 
   int getInt32(int index, int mask) {
     assert(index >= 0);
-    if (index * 32 > dataSizeBits) return mask;
+    if (index * 4 > dataSize) return mask;
     return data.getInt32(index * 4, Endian.little) ^ mask;
   }
 
   int getUint32(int index, int mask) {
     assert(index >= 0);
-    if (index * 32 > dataSizeBits) return mask;
+    if (index * 4 > dataSize) return mask;
     return data.getUint32(index * 4, Endian.little) ^ mask;
   }
 
   int getInt64(int index, int mask) {
     assert(index >= 0);
-    if (index * 64 > dataSizeBits) return mask;
+    if (index * 8 > dataSize) return mask;
     return data.getInt64(index * 8, Endian.little) ^ mask;
   }
 
   int getUint64(int index, int mask) {
     assert(index >= 0);
-    if (index * 64 > dataSizeBits) return mask;
+    if (index * 8 > dataSize) return mask;
     return data.getUint64(index * 8, Endian.little) ^ mask;
   }
 
@@ -403,7 +533,7 @@ class StructReader {
 
   double getFloat32(int index, int mask) {
     assert(index >= 0);
-    final isOutOfBounds = index * 32 >= dataSizeBits;
+    final isOutOfBounds = index * 4 >= dataSize;
     if (mask == 0) {
       if (isOutOfBounds) return 0;
       return data.getFloat32(index * 4, Endian.little);
@@ -419,7 +549,7 @@ class StructReader {
 
   double getFloat64(int index, int mask) {
     assert(index >= 0);
-    final isOutOfBounds = index * 64 >= dataSizeBits;
+    final isOutOfBounds = index * 8 >= dataSize;
     if (mask == 0) {
       if (isOutOfBounds) return 0;
       return data.getFloat64(index * 8, Endian.little);
@@ -433,4 +563,20 @@ class StructReader {
     _floatXorData.setInt64(0, valueBits ^ mask);
     return _floatXorData.getFloat64(0);
   }
+
+  // Pointer
+
+  PointerReader getPointerField(int index) {
+    assert(index >= 0);
+    if (index >= pointerCount) return PointerReader.defaultReader;
+    return PointerReader._(
+      arena,
+      segmentId,
+      WirePointer.fromSegment(pointers, index),
+      nestingLimit: nestingLimit,
+    );
+  }
 }
+
+int _roundBytesUpToWords(int bytes) =>
+    (bytes + CapnpConstants.bytesPerWord - 1) ~/ CapnpConstants.bytesPerWord;

@@ -8,7 +8,7 @@ class ReadLimiter {
   int? _limit;
   int? get limit => _limit;
 
-  Result<void, CapnpError> canRead(int amount) {
+  CapnpResult<void> canRead(int amount) {
     if (_limit case final limit?) {
       if (amount > limit) return const Err(ReadLimitExceededCapnpError());
       _limit = limit - amount;

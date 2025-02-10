@@ -7,17 +7,136 @@ import 'package:oxidized/oxidized.dart';
 
 void main() {}
 
-class PersonReader {
-  const PersonReader(this.reader);
+// Person
 
-  static Result<PersonReader, CapnpError> fromPointer(
+class Person_Reader {
+  const Person_Reader(this.reader);
+
+  static CapnpResult<Person_Reader> fromPointer(
     PointerReader reader,
     ByteData? defaultValue,
   ) =>
-      reader.getStruct(defaultValue).map(PersonReader.new);
+      reader.getStruct(defaultValue).map(Person_Reader.new);
 
   final StructReader reader;
+
+  int get id => reader.getUint32(0, 0);
+
+  bool get hasName => !reader.getPointerField(0).isNull;
+  CapnpResult<TextReader> get name =>
+      TextReader.fromPointer(reader.getPointerField(0), null);
+
+  bool get hasEmail => !reader.getPointerField(1).isNull;
+  CapnpResult<TextReader> get email =>
+      TextReader.fromPointer(reader.getPointerField(1), null);
 }
+
+// Person.PhoneNumber
+
+class Person_PhoneNumber_Reader {
+  const Person_PhoneNumber_Reader(this.reader);
+
+  static CapnpResult<Person_PhoneNumber_Reader> fromPointer(
+    PointerReader reader,
+    ByteData? defaultValue,
+  ) =>
+      reader.getStruct(defaultValue).map(Person_PhoneNumber_Reader.new);
+
+  final StructReader reader;
+
+  bool get hasNumber => !reader.getPointerField(0).isNull;
+  CapnpResult<TextReader> get number =>
+      TextReader.fromPointer(reader.getPointerField(0), null);
+
+  Result<Person_PhoneNumber_Type, NotInSchemaError> get type =>
+      Person_PhoneNumber_Type.fromValue(reader.getUint16(0, 0));
+}
+
+// Person.PhoneNumber.Type
+
+enum Person_PhoneNumber_Type {
+  mobile(0),
+  home(1),
+  work(2);
+
+  const Person_PhoneNumber_Type(this.value);
+
+  static Result<Person_PhoneNumber_Type, NotInSchemaError> fromValue(
+    int value,
+  ) {
+    return switch (value) {
+      0 => const Ok(Person_PhoneNumber_Type.mobile),
+      1 => const Ok(Person_PhoneNumber_Type.home),
+      2 => const Ok(Person_PhoneNumber_Type.work),
+      _ => Err(NotInSchemaError(value)),
+    };
+  }
+
+  final int value;
+}
+
+// Person.Employment
+
+class Person_Employment_Reader {
+  const Person_Employment_Reader(this.reader);
+
+  final StructReader reader;
+
+  bool get hasEmployer =>
+      reader.getUint16(2, 0) == 1 && !reader.getPointerField(3).isNull;
+  bool get hasSchool =>
+      reader.getUint16(2, 0) == 2 && !reader.getPointerField(3).isNull;
+
+  Result<Person_Employment_Which_Reader, NotInSchemaError> get which {
+    return switch (reader.getUint16(2, 0)) {
+      0 => const Ok(Person_Employment_Which_Unemployed()),
+      1 => Ok(
+          Person_Employment_Which_Employer(
+            TextReader.fromPointer(reader.getPointerField(3), null),
+          ),
+        ),
+      2 => Ok(
+          Person_Employment_Which_School(
+            TextReader.fromPointer(reader.getPointerField(3), null),
+          ),
+        ),
+      3 => const Ok(Person_Employment_Which_SelfEmployed()),
+      final variant => Err(NotInSchemaError(variant)),
+    };
+  }
+}
+
+typedef Person_Employment_Which_Reader
+    = Person_Employment_Which<CapnpResult<TextReader>, CapnpResult<TextReader>>;
+
+sealed class Person_Employment_Which<A0, A1> {
+  const Person_Employment_Which();
+}
+
+final class Person_Employment_Which_Unemployed
+    extends Person_Employment_Which<Never, Never> {
+  const Person_Employment_Which_Unemployed();
+}
+
+final class Person_Employment_Which_Employer<A0>
+    extends Person_Employment_Which<A0, Never> {
+  const Person_Employment_Which_Employer(this.value);
+
+  final A0 value;
+}
+
+final class Person_Employment_Which_School<A1>
+    extends Person_Employment_Which<Never, A1> {
+  const Person_Employment_Which_School(this.value);
+
+  final A1 value;
+}
+
+final class Person_Employment_Which_SelfEmployed
+    extends Person_Employment_Which<Never, Never> {
+  const Person_Employment_Which_SelfEmployed();
+}
+
 
 // import 'dart:io';
 // import 'dart:typed_data';
@@ -97,13 +216,13 @@ class PersonReader {
 //   // This is optional:
 //   @override
 //   String toString() {
-//     return 'TestStruct(unit: <void>, boolean: $boolean, '
+//     return 'TestStruct(unit: <void>, boolean: _boolean, '
 // ignore: lines_longer_than_80_chars
-//         'booleanList: $booleanList, int8: $int8, int16: $int16, int32: $int32, '
-//         'int64: $int64, uint8: $uint8, uint16: $uint16, '
-//         'uint16List: $uint16List, uint32: $uint32, uint64: $uint64, '
-//         'float32: $float32, float32List: $float32List, float64: $float64, '
-//         'text: $text, data: $data, foo: $foo, fooList: $fooList)';
+//         'booleanList: _booleanList, int8: _int8, int16: _int16, int32: _int32, '
+//         'int64: _int64, uint8: _uint8, uint16: _uint16, '
+//         'uint16List: _uint16List, uint32: _uint32, uint64: _uint64, '
+//         'float32: _float32, float32List: _float32List, float64: _float64, '
+//         'text: _text, data: _data, foo: _foo, fooList: _fooList)';
 //   }
 // }
 
@@ -113,5 +232,5 @@ class PersonReader {
 //   int get bar => reader.getUInt8(0);
 
 //   @override
-//   String toString() => 'Foo(bar: $bar)';
+//   String toString() => 'Foo(bar: _bar)';
 // }

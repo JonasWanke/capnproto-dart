@@ -1,6 +1,4 @@
-import 'package:oxidized/oxidized.dart';
-
-import '../error.dart';
+import 'error.dart';
 import 'message.dart';
 import 'private/layout.dart';
 
@@ -9,6 +7,6 @@ class AnyPointerReader {
 
   final PointerReader _reader;
 
-  Result<T, CapnpError> getAs<T>(FromPointerReader<T> fromPointer) =>
+  CapnpResult<T> getAs<T>(FromPointerReader<T> fromPointer) =>
       fromPointer(_reader, null);
 }

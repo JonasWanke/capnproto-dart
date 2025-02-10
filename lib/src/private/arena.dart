@@ -15,10 +15,10 @@ extension type const SegmentId(int index) {
 abstract class ReaderArena {
   const ReaderArena();
 
-  Result<ByteData, CapnpError> getSegment(SegmentId id);
+  CapnpResult<ByteData> getSegment(SegmentId id);
 
-  Result<void, CapnpError> checkOffset(SegmentId segmentId, int offset);
-  Result<ByteData, CapnpError> getInterval(
+  CapnpResult<void> checkOffset(SegmentId segmentId, int offset);
+  CapnpResult<ByteData> getInterval(
     SegmentId segmentId,
     int start,
     int sizeInWords,
@@ -35,7 +35,7 @@ class ReaderArenaImpl extends ReaderArena {
   final int nestingLimit;
 
   @override
-  Result<ByteData, CapnpError> getSegment(SegmentId id) {
+  CapnpResult<ByteData> getSegment(SegmentId id) {
     if (id.index < 0 || id.index >= _segments.length) {
       return Err(InvalidSegmentIdCapnpError(id));
     }
@@ -43,7 +43,7 @@ class ReaderArenaImpl extends ReaderArena {
   }
 
   @override
-  Result<void, CapnpError> checkOffset(SegmentId segmentId, int offset) {
+  CapnpResult<void> checkOffset(SegmentId segmentId, int offset) {
     return getSegment(segmentId).andThen((segment) {
       if (offset < 0 || offset > segment.lengthInBytes) {
         return const Err(MessageContainsOutOfBoundsPointerCapnpError());
@@ -54,7 +54,7 @@ class ReaderArenaImpl extends ReaderArena {
   }
 
   @override
-  Result<ByteData, CapnpError> getInterval(
+  CapnpResult<ByteData> getInterval(
     SegmentId segmentId,
     int start,
     int sizeInWords,
@@ -77,14 +77,14 @@ class NullArena extends ReaderArena {
   const NullArena();
 
   @override
-  Result<ByteData, CapnpError> getSegment(SegmentId id) =>
+  CapnpResult<ByteData> getSegment(SegmentId id) =>
       const Err(TriedToReadFromNullArenaCapnpError());
 
   @override
-  Result<void, CapnpError> checkOffset(SegmentId segmentId, int offset) =>
+  CapnpResult<void> checkOffset(SegmentId segmentId, int offset) =>
       const Ok(null);
   @override
-  Result<ByteData, CapnpError> getInterval(
+  CapnpResult<ByteData> getInterval(
     SegmentId segmentId,
     int start,
     int sizeInWords,

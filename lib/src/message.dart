@@ -1,7 +1,6 @@
 import 'dart:typed_data';
 
 import 'package:meta/meta.dart';
-import 'package:oxidized/oxidized.dart';
 
 import 'any_pointer.dart';
 import 'error.dart';
@@ -77,9 +76,9 @@ class Reader {
   final ReaderArenaImpl _arena;
 
   /// Gets the root of the message, interpreting it as the given type.
-  Result<T, CapnpError> getRoot<T>(FromPointerReader<T> fromPointer) =>
+  CapnpResult<T> getRoot<T>(FromPointerReader<T> fromPointer) =>
       _getRootInternal().andThen((it) => it.getAs(fromPointer));
-  Result<AnyPointerReader, CapnpError> _getRootInternal() {
+  CapnpResult<AnyPointerReader> _getRootInternal() {
     return PointerReader.getRoot(
       _arena,
       SegmentId.zero,
@@ -89,7 +88,7 @@ class Reader {
   }
 }
 
-typedef FromPointerReader<T> = Result<T, CapnpError> Function(
+typedef FromPointerReader<T> = CapnpResult<T> Function(
   PointerReader reader,
   ByteData? defaultValue,
 );
