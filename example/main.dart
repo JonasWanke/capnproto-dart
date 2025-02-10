@@ -1,11 +1,19 @@
 // ignore_for_file: avoid_print
 
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:capnproto/capnproto.dart';
 import 'package:oxidized/oxidized.dart';
 
-void main() {}
+Future<void> main(List<String> args) async {
+  final bytes = await File(args.single).readAsBytes();
+  final addressBook = readMessage(bytes.buffer.asByteData())
+      .unwrap()
+      .getRoot(AddressBook_Reader.fromPointer)
+      .unwrap();
+  print(addressBook);
+}
 
 // Person
 
@@ -43,8 +51,8 @@ class Person_Reader {
 
   @override
   String toString() {
-    return 'Person(id: $id, name: $name, email: $email, phones: $phones, '
-        'employment: $employment)';
+    return '(id = $id, name = ${name.inner}, email = ${email.inner}, '
+        'phones = ${phones.inner}, employment = $employment)';
   }
 }
 
@@ -69,7 +77,7 @@ class Person_PhoneNumber_Reader {
       Person_PhoneNumber_Type.fromValue(reader.getUint16(0, 0));
 
   @override
-  String toString() => 'Person_PhoneNumber(number: $number, type: $type)';
+  String toString() => '(number = ${number.inner}, type = ${type.inner})';
 }
 
 // Person.PhoneNumber.Type
@@ -126,7 +134,7 @@ class Person_Employment_Reader {
   }
 
   @override
-  String toString() => which.toString();
+  String toString() => which.inner.toString();
 }
 
 typedef Person_Employment_Which_Reader
@@ -141,7 +149,7 @@ final class Person_Employment_Which_Unemployed
   const Person_Employment_Which_Unemployed();
 
   @override
-  String toString() => 'Person_Employment_Which_Unemployed()';
+  String toString() => '(unemployed = void)';
 }
 
 final class Person_Employment_Which_Employer<A0>
@@ -149,6 +157,9 @@ final class Person_Employment_Which_Employer<A0>
   const Person_Employment_Which_Employer(this.value);
 
   final A0 value;
+
+  @override
+  String toString() => '(employer = $value)';
 }
 
 final class Person_Employment_Which_School<A1>
@@ -156,11 +167,16 @@ final class Person_Employment_Which_School<A1>
   const Person_Employment_Which_School(this.value);
 
   final A1 value;
+
+  @override
+  String toString() => '(school = $value)';
 }
 
 final class Person_Employment_Which_SelfEmployed
     extends Person_Employment_Which<Never, Never> {
   const Person_Employment_Which_SelfEmployed();
+  @override
+  String toString() => '(selfEmployed = void)';
 }
 
 // AddressBook
@@ -182,6 +198,18 @@ class AddressBook_Reader {
       reader.getPointerField(0),
       Person_Reader.new,
       null,
+    );
+  }
+
+  @override
+  String toString() => '(people = ${people.inner})';
+}
+
+extension<T extends Object> on Result<T, T> {
+  T get inner {
+    return match(
+      (value) => value,
+      (error) => error,
     );
   }
 }
