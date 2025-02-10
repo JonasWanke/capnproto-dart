@@ -23,6 +23,7 @@ abstract class ReaderArena {
     int start,
     int sizeInWords,
   );
+  CapnpResult<void> amplifiedRead(int virtualAmount);
 }
 
 class ReaderArenaImpl extends ReaderArena {
@@ -71,6 +72,10 @@ class ReaderArenaImpl extends ReaderArena {
           );
     });
   }
+
+  @override
+  CapnpResult<void> amplifiedRead(int virtualAmount) =>
+      readLimiter.canRead(virtualAmount);
 }
 
 class NullArena extends ReaderArena {
@@ -90,6 +95,9 @@ class NullArena extends ReaderArena {
     int sizeInWords,
   ) =>
       Ok(ByteData(sizeInWords * CapnpConstants.bytesPerWord));
+
+  @override
+  CapnpResult<void> amplifiedRead(int virtualAmount) => const Ok(null);
 }
 
 // abstract class BuilderArena extends ReaderArena {}

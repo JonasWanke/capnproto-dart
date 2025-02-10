@@ -18,7 +18,7 @@ enum ElementSize {
   fourBytes,
   eightBytes,
   pointer,
-  composite;
+  inlineComposite;
 
   int get dataBitsPerElement {
     return switch (this) {
@@ -29,7 +29,7 @@ enum ElementSize {
       ElementSize.fourBytes => 32,
       ElementSize.eightBytes => 64,
       ElementSize.pointer => 0,
-      ElementSize.composite => 0,
+      ElementSize.inlineComposite => 0,
     };
   }
 
@@ -43,7 +43,7 @@ enum ElementSize {
       ElementSize.eightBytes =>
         0,
       ElementSize.pointer => 1,
-      ElementSize.composite => 0,
+      ElementSize.inlineComposite => 0,
     };
   }
 }
@@ -106,6 +106,11 @@ final class WirePointer {
   int get structWordSize {
     assert(kind == WirePointerKind.struct);
     return structDataSize + structPointerCount * CapnpConstants.wordsPerPointer;
+  }
+
+  int get inlineCompositeListElementCount {
+    assert(kind == WirePointerKind.struct);
+    return _offsetAndKind >> 2;
   }
 
   // List
@@ -280,6 +285,191 @@ class PointerReader {
         nestingLimit: nestingLimit - 1,
       ),
     );
+  }
+
+  CapnpResult<ListReader> getList(
+    ByteData? defaultValue, {
+    ElementSize? expectedElementSize,
+  }) {
+    var arena = this.arena;
+    var segmentId = this.segmentId;
+    var reff = pointer;
+    if (reff.isNull) {
+      if (defaultValue == null) return Ok(ListReader.defaultReader);
+
+      reff = WirePointer(defaultValue);
+      if (reff.isNull) return Ok(ListReader.defaultReader);
+
+      arena = const NullArena();
+      segmentId = SegmentId.zero;
+    }
+
+    if (nestingLimit <= 0) return const Err(NestingLimitExceededCapnpError());
+
+    final int start;
+    switch (_followFars(arena, reff, segmentId)) {
+      case Ok(value: (final reffValue, final segmentIdValue, final startValue)):
+        reff = reffValue;
+        segmentId = segmentIdValue;
+        start = startValue;
+      case Err(:final error):
+        return Err(error);
+    }
+
+    if (reff.kind != WirePointerKind.list) {
+      return const Err(
+        MessageContainsNonListPointerWhereListPointerWasExpectedCapnpError(),
+      );
+    }
+
+    final elementSize = reff.listElementSize;
+    switch (elementSize) {
+      case ElementSize.inlineComposite:
+        final wordCount = reff.listInlineCompositeWordCount;
+
+        ByteData data;
+        switch (arena.getInterval(segmentId, start, wordCount)) {
+          case Ok(:final value):
+            data = value;
+          case Err(:final error):
+            return Err(error);
+        }
+        final tag = WirePointer.fromSegment(data, 0);
+        data = data.buffer
+            .asByteData(data.offsetInBytes + CapnpConstants.bytesPerPointer);
+
+        if (tag.kind != WirePointerKind.struct) {
+          return const Err(
+            InlineCompositeListsOfNonStructTypeAreNotSupportedCapnpError(),
+          );
+        }
+
+        final elementCount = tag.inlineCompositeListElementCount;
+        final dataSize = tag.structDataSize;
+        final pointerCount = tag.structPointerCount;
+        final wordsPerElement = tag.structWordSize;
+
+        if (elementCount * wordsPerElement > wordCount) {
+          return const Err(
+            InlineCompositeListsElementsOverrunItsWordCountCapnpError(),
+          );
+        }
+
+        if (wordsPerElement == 0) {
+          // Watch out for lists of zero-sized structs, which can claim to be
+          // arbitrarily large without having sent actual data.
+          if (arena.amplifiedRead(elementCount) case Err(:final error)) {
+            return Err(error);
+          }
+        }
+
+        // If a struct list was not expected, then presumably a non-struct list
+        // was upgraded to a struct list. We need to manipulate the pointer to
+        // point at the first field of the struct. Together with the `step`
+        // field, this will allow the struct list to be accessed as if it were a
+        // primitive list without branching.
+
+        // Check whether the size is compatible.
+        switch (expectedElementSize) {
+          case null || ElementSize.void_ || ElementSize.inlineComposite:
+            break;
+          case ElementSize.bit:
+            return const Err(
+              FoundStructListWhereBitListWasExpectedCapnpError(),
+            );
+          case ElementSize.byte ||
+                ElementSize.twoBytes ||
+                ElementSize.fourBytes ||
+                ElementSize.eightBytes:
+            if (dataSize == 0) {
+              return const Err(
+                // ignore: lines_longer_than_80_chars
+                ExpectedAPrimitiveListButGotAListOfPointerOnlyStructsCapnpError(),
+              );
+            }
+          case ElementSize.pointer:
+            if (pointerCount == 0) {
+              return const Err(
+                ExpectedAPointerListButGotAListOfDataOnlyStructsCapnpError(),
+              );
+            }
+        }
+
+        return Ok(
+          ListReader._(
+            arena,
+            segmentId,
+            data,
+            elementSize: elementSize,
+            length: elementCount,
+            stepInBits: wordsPerElement * CapnpConstants.bitsPerWord,
+            structDataSizeBits: dataSize * CapnpConstants.bitsPerByte,
+            structPointerCount: pointerCount,
+            nestingLimit: nestingLimit - 1,
+          ),
+        );
+
+      // ignore: no_default_cases
+      default:
+        // This is a primitive or pointer list, but all such lists can also be
+        // interpreted as struct lists. We need to compute the data size and
+        // pointer count for such structs.
+        final dataSizeBits = reff.listElementSize.dataBitsPerElement;
+        final pointerCount = reff.listElementSize.pointersPerElement;
+        final elementCount = reff.listElementCount;
+        final step =
+            dataSizeBits + pointerCount * CapnpConstants.bitsPerPointer;
+
+        final wordCount = _roundBitsUpToWords(elementCount * step);
+        final ByteData data;
+        switch (arena.getInterval(segmentId, start, wordCount)) {
+          case Ok(:final value):
+            data = value;
+          case Err(:final error):
+            return Err(error);
+        }
+
+        if (elementSize == ElementSize.void_) {
+          if (arena.amplifiedRead(elementCount) case Err(:final error)) {
+            return Err(error);
+          }
+        }
+
+        if (expectedElementSize != null) {
+          if (elementSize == ElementSize.bit &&
+              expectedElementSize != ElementSize.bit) {
+            return const Err(
+              FoundBitListWhereStructListWasExpectedCapnpError(),
+            );
+          }
+
+          // Verify that the elements are at least as large as the expected
+          // type. Note that if we expected `ElementSize.inlineComposite`, the
+          // expected sizes here will be zero, because bounds checking will be
+          // performed at field access time. So this check here is for the case
+          // where we expected a list of some primitive or pointer type.
+          if (expectedElementSize.dataBitsPerElement > dataSizeBits ||
+              expectedElementSize.pointersPerElement > pointerCount) {
+            return const Err(
+              MessageContainsListWithIncompatibleElementTypeCapnpError(),
+            );
+          }
+        }
+
+        return Ok(
+          ListReader._(
+            arena,
+            segmentId,
+            data,
+            elementSize: elementSize,
+            length: elementCount,
+            stepInBits: step,
+            structDataSizeBits: dataSizeBits,
+            structPointerCount: pointerCount,
+            nestingLimit: nestingLimit - 1,
+          ),
+        );
+    }
   }
 
   CapnpResult<TextReader> getText(ByteData? defaultValue) {
@@ -578,5 +768,66 @@ class StructReader {
   }
 }
 
+class ListReader {
+  ListReader._(
+    this.arena,
+    this.segmentId,
+    this.data, {
+    required this.elementSize,
+    required this.length,
+    required this.stepInBits,
+    required this.structDataSizeBits,
+    required this.structPointerCount,
+    required this.nestingLimit,
+  });
+
+  static final defaultReader = ListReader._(
+    const NullArena(),
+    SegmentId.zero,
+    ByteData(0),
+    elementSize: ElementSize.void_,
+    length: 0,
+    stepInBits: 0,
+    structDataSizeBits: 0,
+    structPointerCount: 0,
+    nestingLimit: 0x7fffffff,
+  );
+
+  final ReaderArena arena;
+  final SegmentId segmentId;
+  final ByteData data;
+
+  final ElementSize elementSize;
+  final int length;
+  bool get isEmpty => length == 0;
+  bool get isNotEmpty => !isEmpty;
+
+  final int stepInBits;
+  final int structDataSizeBits;
+  final int structPointerCount;
+  final int nestingLimit;
+
+  StructReader getStructElement(int index) {
+    assert(0 <= index && index < length);
+    final indexByte = (index * stepInBits) ~/ CapnpConstants.bitsPerByte;
+    final structDataLength = structDataSizeBits ~/ CapnpConstants.bitsPerByte;
+    return StructReader._(
+      arena,
+      segmentId,
+      data: data.buffer.asByteData(
+        data.offsetInBytes + indexByte,
+        structDataLength,
+      ),
+      pointers: data.buffer.asByteData(
+        data.offsetInBytes + indexByte + structDataLength,
+        structPointerCount * CapnpConstants.bytesPerPointer,
+      ),
+      nestingLimit: nestingLimit - 1,
+    );
+  }
+}
+
 int _roundBytesUpToWords(int bytes) =>
     (bytes + CapnpConstants.bytesPerWord - 1) ~/ CapnpConstants.bytesPerWord;
+int _roundBitsUpToWords(int bits) =>
+    (bits + CapnpConstants.bitsPerWord - 1) ~/ CapnpConstants.bitsPerWord;

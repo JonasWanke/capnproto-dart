@@ -42,11 +42,59 @@ class MessageIsTooDeeplyNestedOrContainsCyclesCapnpError extends CapnpError {
   const MessageIsTooDeeplyNestedOrContainsCyclesCapnpError();
 }
 
+// Struct
+
 class MessageContainsNonStructPointerWhereStructPointerWasExpectedCapnpError
     extends CapnpError {
   // ignore: lines_longer_than_80_chars
   const MessageContainsNonStructPointerWhereStructPointerWasExpectedCapnpError();
 }
+
+// List
+
+class NestingLimitExceededCapnpError extends CapnpError {
+  const NestingLimitExceededCapnpError();
+}
+
+class MessageContainsNonListPointerWhereListPointerWasExpectedCapnpError
+    extends CapnpError {
+  const MessageContainsNonListPointerWhereListPointerWasExpectedCapnpError();
+}
+
+class InlineCompositeListsOfNonStructTypeAreNotSupportedCapnpError
+    extends CapnpError {
+  const InlineCompositeListsOfNonStructTypeAreNotSupportedCapnpError();
+}
+
+class InlineCompositeListsElementsOverrunItsWordCountCapnpError
+    extends CapnpError {
+  const InlineCompositeListsElementsOverrunItsWordCountCapnpError();
+}
+
+class FoundStructListWhereBitListWasExpectedCapnpError extends CapnpError {
+  const FoundStructListWhereBitListWasExpectedCapnpError();
+}
+
+class ExpectedAPrimitiveListButGotAListOfPointerOnlyStructsCapnpError
+    extends CapnpError {
+  const ExpectedAPrimitiveListButGotAListOfPointerOnlyStructsCapnpError();
+}
+
+class ExpectedAPointerListButGotAListOfDataOnlyStructsCapnpError
+    extends CapnpError {
+  const ExpectedAPointerListButGotAListOfDataOnlyStructsCapnpError();
+}
+
+class FoundBitListWhereStructListWasExpectedCapnpError extends CapnpError {
+  const FoundBitListWhereStructListWasExpectedCapnpError();
+}
+
+class MessageContainsListWithIncompatibleElementTypeCapnpError
+    extends CapnpError {
+  const MessageContainsListWithIncompatibleElementTypeCapnpError();
+}
+
+// Text
 
 class MessageContainsNonListPointerWhereTextWasExpectedCapnpError
     extends CapnpError {
@@ -61,6 +109,8 @@ class MessageContainsListPointerOfNonBytesWhereTextWasExpectedCapnpError
 class MessageContainsTextThatIsNotNULTerminatedCapnpError extends CapnpError {
   const MessageContainsTextThatIsNotNULTerminatedCapnpError();
 }
+
+// Data
 
 class MessageContainsNonListPointerWhereDataWasExpectedCapnpError
     extends CapnpError {

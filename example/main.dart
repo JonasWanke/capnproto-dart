@@ -29,6 +29,23 @@ class Person_Reader {
   bool get hasEmail => !reader.getPointerField(1).isNull;
   CapnpResult<TextReader> get email =>
       TextReader.fromPointer(reader.getPointerField(1), null);
+
+  bool get hasPhones => !reader.getPointerField(2).isNull;
+  CapnpResult<StructListReader<Person_PhoneNumber_Reader>> get phones {
+    return StructListReader.fromPointer(
+      reader.getPointerField(2),
+      Person_PhoneNumber_Reader.new,
+      null,
+    );
+  }
+
+  Person_Employment_Reader get employment => Person_Employment_Reader(reader);
+
+  @override
+  String toString() {
+    return 'Person(id: $id, name: $name, email: $email, phones: $phones, '
+        'employment: $employment)';
+  }
 }
 
 // Person.PhoneNumber
@@ -50,6 +67,9 @@ class Person_PhoneNumber_Reader {
 
   Result<Person_PhoneNumber_Type, NotInSchemaError> get type =>
       Person_PhoneNumber_Type.fromValue(reader.getUint16(0, 0));
+
+  @override
+  String toString() => 'Person_PhoneNumber(number: $number, type: $type)';
 }
 
 // Person.PhoneNumber.Type
@@ -104,6 +124,9 @@ class Person_Employment_Reader {
       final variant => Err(NotInSchemaError(variant)),
     };
   }
+
+  @override
+  String toString() => which.toString();
 }
 
 typedef Person_Employment_Which_Reader
@@ -116,6 +139,9 @@ sealed class Person_Employment_Which<A0, A1> {
 final class Person_Employment_Which_Unemployed
     extends Person_Employment_Which<Never, Never> {
   const Person_Employment_Which_Unemployed();
+
+  @override
+  String toString() => 'Person_Employment_Which_Unemployed()';
 }
 
 final class Person_Employment_Which_Employer<A0>
@@ -137,6 +163,28 @@ final class Person_Employment_Which_SelfEmployed
   const Person_Employment_Which_SelfEmployed();
 }
 
+// AddressBook
+
+class AddressBook_Reader {
+  const AddressBook_Reader(this.reader);
+
+  static CapnpResult<AddressBook_Reader> fromPointer(
+    PointerReader reader,
+    ByteData? defaultValue,
+  ) =>
+      reader.getStruct(defaultValue).map(AddressBook_Reader.new);
+
+  final StructReader reader;
+
+  bool get hasPeople => !reader.getPointerField(0).isNull;
+  CapnpResult<StructListReader<Person_Reader>> get people {
+    return StructListReader.fromPointer(
+      reader.getPointerField(0),
+      Person_Reader.new,
+      null,
+    );
+  }
+}
 
 // import 'dart:io';
 // import 'dart:typed_data';

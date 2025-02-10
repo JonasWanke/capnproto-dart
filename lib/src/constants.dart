@@ -6,4 +6,5 @@ abstract final class CapnpConstants {
 
   static const wordsPerPointer = 1;
   static const bytesPerPointer = wordsPerPointer * bytesPerWord;
+  static const bitsPerPointer = wordsPerPointer * bitsPerWord;
 }

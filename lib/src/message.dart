@@ -92,3 +92,4 @@ typedef FromPointerReader<T> = CapnpResult<T> Function(
   PointerReader reader,
   ByteData? defaultValue,
 );
+typedef FromStructReader<T> = T Function(StructReader reader);
