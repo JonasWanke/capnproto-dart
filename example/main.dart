@@ -33,7 +33,7 @@ Future<void> _writeAddressBookTo(File file) async {
   alice.setEmail('alice@example.com');
   final alicePhones = alice.initPhones(1);
   alicePhones[0].setNumber('555-1212');
-  alicePhones[0].setType(Person_PhoneNumber_Type.mobile);
+  alicePhones[0].type = Person_PhoneNumber_Type.mobile;
   alice.employment.school = 'MIT';
 
   final bob = people[1];
@@ -42,9 +42,9 @@ Future<void> _writeAddressBookTo(File file) async {
   bob.setEmail('bob@example.com');
   final bobPhones = bob.initPhones(2);
   bobPhones[0].setNumber('555-4567');
-  bobPhones[0].setType(Person_PhoneNumber_Type.home);
+  bobPhones[0].type = Person_PhoneNumber_Type.home;
   bobPhones[1].setNumber('555-7654');
-  bobPhones[1].setType(Person_PhoneNumber_Type.work);
+  bobPhones[1].type = Person_PhoneNumber_Type.work;
   bob.employment.setUnemployed();
 
   final sink = file.openWrite();
@@ -162,12 +162,11 @@ class Person_PhoneNumber_Reader {
   CapnpResult<TextReader> get number =>
       TextReader.fromPointer(reader.getPointerField(0), null);
 
-  // TODO(JonasWanke): throw exception here as well?
-  Result<Person_PhoneNumber_Type, NotInSchemaError> get type =>
+  Person_PhoneNumber_Type get type =>
       Person_PhoneNumber_Type.fromValue(reader.getUint16(0, 0));
 
   @override
-  String toString() => '(number = ${number.inner}, type = ${type.inner})';
+  String toString() => '(number = ${number.inner}, type = $type)';
 }
 
 class Person_PhoneNumber_Builder extends Person_PhoneNumber_Reader {
@@ -191,8 +190,10 @@ class Person_PhoneNumber_Builder extends Person_PhoneNumber_Reader {
 
   void setNumber(String value) => builder.getPointerField(0).setText(value);
 
-  void setType(Person_PhoneNumber_Type value) =>
-      builder.setUint16(0, value.value, 0);
+  set type(Person_PhoneNumber_Type value) {
+    assert(value != Person_PhoneNumber_Type.notInSchema);
+    builder.setUint16(0, value.value!, 0);
+  }
 }
 
 // Person.PhoneNumber.Type
@@ -200,22 +201,21 @@ class Person_PhoneNumber_Builder extends Person_PhoneNumber_Reader {
 enum Person_PhoneNumber_Type {
   mobile(0),
   home(1),
-  work(2);
+  work(2),
+  notInSchema(null);
 
   const Person_PhoneNumber_Type(this.value);
 
-  static Result<Person_PhoneNumber_Type, NotInSchemaError> fromValue(
-    int value,
-  ) {
+  factory Person_PhoneNumber_Type.fromValue(int value) {
     return switch (value) {
-      0 => const Ok(Person_PhoneNumber_Type.mobile),
-      1 => const Ok(Person_PhoneNumber_Type.home),
-      2 => const Ok(Person_PhoneNumber_Type.work),
-      _ => Err(NotInSchemaError(value)),
+      0 => Person_PhoneNumber_Type.mobile,
+      1 => Person_PhoneNumber_Type.home,
+      2 => Person_PhoneNumber_Type.work,
+      _ => Person_PhoneNumber_Type.notInSchema,
     };
   }
 
-  final int value;
+  final int? value;
 }
 
 // Person.Employment
