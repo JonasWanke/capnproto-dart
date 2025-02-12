@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:oxidized/oxidized.dart';
@@ -95,15 +96,141 @@ class NullArena extends ReaderArena {
   CapnpResult<void> amplifiedRead(int virtualAmount) => const Ok(null);
 }
 
-// abstract class BuilderArena extends ReaderArena {}
+abstract class BuilderArena extends ReaderArena {
+  ({int wordIndex, ByteData data})? allocate(
+    SegmentId segmentId,
+    int wordCount,
+  );
+  (SegmentId, {int wordIndex, ByteData data}) allocateAnywhere(int wordCount);
 
-// class BuilderArenaImpl extends BuilderArena {
-//   BuilderArenaImpl() : segments = [];
+  ByteData getSegmentMut(SegmentId id);
+}
 
-//   final List<BuilderSegment> segments;
-// }
+class BuilderArenaImpl extends BuilderArena {
+  BuilderArenaImpl() : segments = [];
 
-// class BuilderSegment {
-//   final ByteData data;
-//   int allocated;
-// }
+  final _HeapAllocator _allocator = _HeapAllocator();
+
+  final List<BuilderSegment> segments;
+  List<ByteData> get segmentsForOutput {
+    return segments
+        .map(
+          (it) => it.data.buffer.asByteData(
+            it.data.offsetInBytes,
+            it.allocatedWords * CapnpConstants.bytesPerWord,
+          ),
+        )
+        .toList();
+  }
+
+  int get length => segments.length;
+  bool get isEmpty => segments.isEmpty;
+  bool get isNotEmpty => segments.isNotEmpty;
+
+  void allocateSegment(int minimumSizeWords) => segments
+      .add(BuilderSegment(_allocator.allocateSegment(minimumSizeWords), 0));
+
+  @override
+  ({int wordIndex, ByteData data})? allocate(
+    SegmentId segmentId,
+    int wordCount,
+  ) {
+    final segment = segments[segmentId.index];
+    if (wordCount >
+        segment.data.lengthInBytes ~/ CapnpConstants.bytesPerWord -
+            segment.allocatedWords) {
+      return null;
+    }
+
+    final wordIndex = segment.allocatedWords;
+    final start = wordIndex * CapnpConstants.bytesPerWord;
+    segment._allocatedWords += wordCount;
+    return (
+      wordIndex: wordIndex,
+      data: segment.data.buffer.asByteData(
+        segment.data.offsetInBytes + start,
+        wordCount * CapnpConstants.bytesPerWord,
+      ),
+    );
+  }
+
+  @override
+  (SegmentId, {int wordIndex, ByteData data}) allocateAnywhere(int wordCount) {
+    // First, try the existing segments, then try allocating a new segment.
+    for (var i = 0; i < segments.length; i++) {
+      final segmentId = SegmentId(i);
+      if (allocate(segmentId, wordCount)
+          case (:final wordIndex, :final data)?) {
+        return (segmentId, wordIndex: wordIndex, data: data);
+      }
+    }
+
+    // Need to allocate a new segment.
+    final segmentId = SegmentId(segments.length);
+    allocateSegment(wordCount);
+    final (:wordIndex, :data) = allocate(segmentId, wordCount)!;
+    return (segmentId, wordIndex: wordIndex, data: data);
+  }
+
+  @override
+  CapnpResult<ByteData> getSegment(SegmentId id) => Ok(getSegmentMut(id));
+  @override
+  ByteData getSegmentMut(SegmentId id) {
+    final segment = segments[id.index];
+    return segment.data.buffer
+        .asByteData(segment.data.offsetInBytes, segment.allocatedWords);
+  }
+
+  @override
+  CapnpResult<void> checkOffset(SegmentId segmentId, int offset) =>
+      const Ok(null);
+
+  @override
+  CapnpResult<ByteData> getInterval(
+    SegmentId segmentId,
+    int start,
+    int sizeInWords,
+  ) {
+    final segment = getSegmentMut(segmentId);
+    assert(segment.offsetInBytes == 0);
+
+    final size = sizeInWords * CapnpConstants.bytesPerWord;
+    if (start < 0 || start + size > segment.buffer.lengthInBytes) {
+      return const Err(MessageContainsOutOfBoundsPointerCapnpError());
+    }
+
+    return Ok(segment.buffer.asByteData(start, size));
+  }
+
+  @override
+  CapnpResult<void> amplifiedRead(int virtualAmount) => const Ok(null);
+}
+
+class _HeapAllocator {
+  static const maxSegmentWords = 1 << 29;
+
+  int nextSizeWords = 1024;
+
+  ByteData allocateSegment(int minimumSizeWords) {
+    final size = max(minimumSizeWords, nextSizeWords);
+    final data = ByteData(size);
+    if (size < maxSegmentWords - nextSizeWords) {
+      nextSizeWords += size;
+    } else {
+      nextSizeWords = nextSizeWords + maxSegmentWords;
+    }
+    return data;
+  }
+}
+
+class BuilderSegment {
+  BuilderSegment(this.data, this._allocatedWords)
+      : assert(
+          _allocatedWords * CapnpConstants.bytesPerWord < data.lengthInBytes,
+        );
+
+  final ByteData data;
+
+  int _allocatedWords;
+  int get allocatedWords => _allocatedWords;
+}

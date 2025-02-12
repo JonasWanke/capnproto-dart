@@ -5,7 +5,7 @@ import 'message.dart';
 import 'private/layout.dart';
 
 class StructListReader<T> extends Iterable<T> {
-  const StructListReader(this.reader, this.fromStruct);
+  const StructListReader(this.reader, this.fromStructReader);
 
   static CapnpResult<StructListReader<T>> fromPointer<T>(
     PointerReader reader,
@@ -21,7 +21,7 @@ class StructListReader<T> extends Iterable<T> {
   }
 
   final ListReader reader;
-  final FromStructReader<T> fromStruct;
+  final FromStructReader<T> fromStructReader;
 
   @override
   Iterator<T> get iterator =>
@@ -38,7 +38,44 @@ class StructListReader<T> extends Iterable<T> {
     return this[length - 1];
   }
 
-  T operator [](int index) => fromStruct(reader.getStructElement(index));
+  T operator [](int index) => fromStructReader(reader.getStructElement(index));
   @override
   T elementAt(int index) => this[index];
+}
+
+class StructListBuilder<T, B extends T> extends StructListReader<T> {
+  StructListBuilder(this.builder, this.fromStruct)
+      : super(builder, fromStruct.fromReader);
+
+  factory StructListBuilder.initPointer(
+    PointerBuilder builder,
+    int length,
+    StructSize structSize,
+    FromStructBuilder<T, B> fromStruct,
+  ) {
+    return StructListBuilder(
+      builder.initStructList(length, structSize),
+      fromStruct,
+    );
+  }
+
+  static CapnpResult<StructListBuilder<T, B>> getFromPointer<T, B extends T>(
+    PointerBuilder builder,
+    StructSize structSize,
+    FromStructBuilder<T, B> fromStruct,
+    ByteData? defaultValue,
+  ) {
+    return builder
+        .getStructList(structSize, defaultValue)
+        .map((it) => StructListBuilder(it, fromStruct));
+  }
+
+  final ListBuilder builder;
+  final FromStructBuilder<T, B> fromStruct;
+
+  @override
+  B operator [](int index) =>
+      fromStruct.fromBuilder(builder.getStructElement(index));
+  @override
+  B elementAt(int index) => this[index];
 }

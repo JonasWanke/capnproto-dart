@@ -83,9 +83,53 @@ class MessageReader {
     return PointerReader.getRoot(
       _arena,
       SegmentId.zero,
-      location: 0,
       nestingLimit: _arena.nestingLimit,
     ).map(AnyPointerReader.new);
+  }
+}
+
+/// A container used to build a message.
+class MessageBuilder {
+  MessageBuilder() : _arena = BuilderArenaImpl();
+
+  final BuilderArenaImpl _arena;
+  List<ByteData> get segmentsForOutput => _arena.segmentsForOutput;
+
+  /// Initializes the root as a value of the given type.
+  T initRoot<T>(FromPointerBuilder<T> fromPointer) =>
+      _getRootInternal().initAs(fromPointer);
+
+  /// Initializes the root as a value of the given list type with the given
+  /// length.
+  T initRootAsListOf<T>(FromPointerBuilder<T> fromPointer, int length) =>
+      _getRootInternal().initAsListOf(fromPointer, length);
+
+  /// Gets the root, interpreting it as the given type.
+  CapnpResult<T> getRoot<T>(FromPointerBuilder<T> fromPointer) =>
+      _getRootInternal().getAs(fromPointer);
+
+  CapnpResult<T> getRootAsReader<T>(FromPointerReader<T> fromPointer) {
+    if (_arena.isEmpty) {
+      return AnyPointerReader(PointerReader.defaultReader).getAs(fromPointer);
+    }
+
+    return PointerReader.getRoot(
+      _arena,
+      SegmentId.zero,
+      nestingLimit: 0x7fffffff,
+    ).andThen((it) => AnyPointerReader(it).getAs(fromPointer));
+  }
+
+  // TODO(JonasWanke): setRoot(…), setRootCanonical(…)
+
+  AnyPointerBuilder _getRootInternal() {
+    if (_arena.isEmpty) {
+      _arena.allocateSegment(1);
+      _arena.allocate(SegmentId.zero, 1);
+    }
+    return AnyPointerBuilder(
+      PointerBuilder.getRoot(_arena, SegmentId.zero, location: 0),
+    );
   }
 }
 
@@ -93,4 +137,20 @@ typedef FromPointerReader<T> = CapnpResult<T> Function(
   PointerReader reader,
   ByteData? defaultValue,
 );
+
+final class FromPointerBuilder<T> {
+  FromPointerBuilder({required this.initPointer, required this.getFromPointer});
+
+  final T Function(PointerBuilder builder, int length) initPointer;
+  final CapnpResult<T> Function(PointerBuilder builder, ByteData? defaultValue)
+      getFromPointer;
+}
+
 typedef FromStructReader<T> = T Function(StructReader reader);
+
+final class FromStructBuilder<T, B extends T> {
+  FromStructBuilder({required this.fromReader, required this.fromBuilder});
+
+  final FromStructReader<T> fromReader;
+  final B Function(StructBuilder builder) fromBuilder;
+}

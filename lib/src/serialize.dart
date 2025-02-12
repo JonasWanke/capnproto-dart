@@ -24,6 +24,38 @@ CapnpResult<MessageReader> readMessage(
   }
 }
 
+void writeMessage(MessageBuilder message, Sink<List<int>> sink) {
+  final segments = message.segmentsForOutput;
+  _writeSegmentTable(segments, sink);
+  _writeSegments(segments, sink);
+}
+
+/// Writes a segment table to [sink].
+///
+/// [segments] must contain at least one segment.
+void _writeSegmentTable(List<ByteData> segments, Sink<List<int>> sink) {
+  assert(segments.isNotEmpty);
+
+  final buffer = ByteData(4 + segments.length * 4);
+  buffer.setUint32(0, segments.length - 1, Endian.little);
+  for (final (index, segment) in segments.indexed) {
+    buffer.setUint32(
+      4 + index * 4,
+      segment.lengthInBytes ~/ CapnpConstants.bytesPerWord,
+      Endian.little,
+    );
+  }
+  sink.add(buffer.buffer.asUint8List());
+}
+
+void _writeSegments(List<ByteData> segments, Sink<List<int>> sink) {
+  for (final segment in segments) {
+    sink.add(
+      segment.buffer.asUint8List(segment.offsetInBytes, segment.lengthInBytes),
+    );
+  }
+}
+
 const segmentCountLimit = 512;
 
 /// Reads a segment table from `read` and returns the total number of words

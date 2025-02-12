@@ -110,6 +110,15 @@ class MessageContainsListWithIncompatibleElementTypeCapnpError
   const MessageContainsListWithIncompatibleElementTypeCapnpError();
 }
 
+class ExistingPointerIsNotAListCapnpError extends CapnpError {
+  const ExistingPointerIsNotAListCapnpError();
+}
+
+class InlineCompositeListWithNonStructElementsNotSupportedCapnpError
+    extends CapnpError {
+  const InlineCompositeListWithNonStructElementsNotSupportedCapnpError();
+}
+
 // Text
 
 class MessageContainsNonListPointerWhereTextWasExpectedCapnpError

@@ -1,4 +1,4 @@
-// ignore_for_file: avoid_print
+// ignore_for_file: avoid_print, unreachable_from_main, camel_case_types
 
 import 'dart:io';
 import 'dart:typed_data';
@@ -7,12 +7,49 @@ import 'package:capnproto/capnproto.dart';
 import 'package:oxidized/oxidized.dart';
 
 Future<void> main(List<String> args) async {
-  final bytes = await File(args.single).readAsBytes();
+  final readFile = File(args[0]);
+  final writeFile = File(args[1]);
+
+  final bytes = await readFile.readAsBytes();
   final addressBook = readMessage(bytes.buffer.asByteData())
       .unwrap()
       .getRoot(AddressBook_Reader.fromPointer)
       .unwrap();
   print(addressBook);
+
+  addressBook.people.unwrap()[0].name.toString();
+
+  await _writeAddressBookTo(writeFile);
+}
+
+Future<void> _writeAddressBookTo(File file) async {
+  final message = MessageBuilder();
+  final addressBook = message.initRoot(AddressBook_Builder.fromPointer);
+  final people = addressBook.initPeople(2);
+
+  final alice = people[0];
+  alice.id = 123;
+  alice.setName('Alice');
+  alice.setEmail('alice@example.com');
+  final alicePhones = alice.initPhones(1);
+  alicePhones[0].setNumber('555-1212');
+  alicePhones[0].setType(Person_PhoneNumber_Type.mobile);
+  alice.employment.school = 'MIT';
+
+  final bob = people[1];
+  bob.id = 456;
+  bob.setName('Bob');
+  bob.setEmail('bob@example.com');
+  final bobPhones = bob.initPhones(2);
+  bobPhones[0].setNumber('555-4567');
+  bobPhones[0].setType(Person_PhoneNumber_Type.home);
+  bobPhones[1].setNumber('555-7654');
+  bobPhones[1].setType(Person_PhoneNumber_Type.work);
+  bob.employment.setUnemployed();
+
+  final sink = file.openWrite();
+  writeMessage(message, sink);
+  await sink.close();
 }
 
 // Person
@@ -56,6 +93,58 @@ class Person_Reader {
   }
 }
 
+class Person_Builder extends Person_Reader {
+  const Person_Builder(this.builder) : super(builder);
+
+  static const structSize = StructSize(dataWords: 1, pointerCount: 4);
+
+  static final fromPointer = FromPointerBuilder(
+    initPointer: (builder, length) =>
+        Person_Builder(builder.initStruct(structSize)),
+    getFromPointer: (builder, defaultValue) => builder
+        .getStructBuilder(structSize, defaultValue)
+        .map(Person_Builder.new),
+  );
+  static final fromStruct = FromStructBuilder(
+    fromReader: Person_Reader.new,
+    fromBuilder: Person_Builder.new,
+  );
+
+  final StructBuilder builder;
+
+  set id(int value) => builder.setUint32(0, value, 0);
+
+  void setName(String value) => builder.getPointerField(0).setText(value);
+
+  void setEmail(String value) => builder.getPointerField(1).setText(value);
+
+  @override
+  CapnpResult<
+      StructListBuilder<Person_PhoneNumber_Reader,
+          Person_PhoneNumber_Builder>> get phones {
+    return StructListBuilder.getFromPointer(
+      builder.getPointerField(2),
+      Person_PhoneNumber_Builder.structSize,
+      Person_PhoneNumber_Builder.fromStruct,
+      null,
+    );
+  }
+
+  StructListBuilder<Person_PhoneNumber_Reader, Person_PhoneNumber_Builder>
+      initPhones(int length) {
+    return StructListBuilder.initPointer(
+      builder.getPointerField(2),
+      length,
+      Person_PhoneNumber_Builder.structSize,
+      Person_PhoneNumber_Builder.fromStruct,
+    );
+  }
+
+  @override
+  Person_Employment_Builder get employment =>
+      Person_Employment_Builder(builder);
+}
+
 // Person.PhoneNumber
 
 class Person_PhoneNumber_Reader {
@@ -73,11 +162,37 @@ class Person_PhoneNumber_Reader {
   CapnpResult<TextReader> get number =>
       TextReader.fromPointer(reader.getPointerField(0), null);
 
+  // TODO(JonasWanke): throw exception here as well?
   Result<Person_PhoneNumber_Type, NotInSchemaError> get type =>
       Person_PhoneNumber_Type.fromValue(reader.getUint16(0, 0));
 
   @override
   String toString() => '(number = ${number.inner}, type = ${type.inner})';
+}
+
+class Person_PhoneNumber_Builder extends Person_PhoneNumber_Reader {
+  const Person_PhoneNumber_Builder(this.builder) : super(builder);
+
+  static const structSize = StructSize(dataWords: 1, pointerCount: 1);
+
+  static final fromPointer = FromPointerBuilder(
+    initPointer: (builder, length) =>
+        Person_PhoneNumber_Builder(builder.initStruct(structSize)),
+    getFromPointer: (builder, defaultValue) => builder
+        .getStructBuilder(structSize, defaultValue)
+        .map(Person_PhoneNumber_Builder.new),
+  );
+  static final fromStruct = FromStructBuilder(
+    fromReader: Person_PhoneNumber_Reader.new,
+    fromBuilder: Person_PhoneNumber_Builder.new,
+  );
+
+  final StructBuilder builder;
+
+  void setNumber(String value) => builder.getPointerField(0).setText(value);
+
+  void setType(Person_PhoneNumber_Type value) =>
+      builder.setUint16(0, value.value, 0);
 }
 
 // Person.PhoneNumber.Type
@@ -135,6 +250,45 @@ class Person_Employment_Reader {
 
   @override
   String toString() => which.inner.toString();
+}
+
+class Person_Employment_Builder extends Person_Employment_Reader {
+  const Person_Employment_Builder(this.builder) : super(builder);
+
+  static const structSize = StructSize(dataWords: 1, pointerCount: 4);
+
+  static final fromPointer = FromPointerBuilder(
+    initPointer: (builder, length) =>
+        Person_Employment_Builder(builder.initStruct(structSize)),
+    getFromPointer: (builder, defaultValue) => builder
+        .getStructBuilder(structSize, defaultValue)
+        .map(Person_Employment_Builder.new),
+  );
+  static final fromStruct = FromStructBuilder(
+    fromReader: Person_Employment_Reader.new,
+    fromBuilder: Person_Employment_Builder.new,
+  );
+
+  final StructBuilder builder;
+
+  void setUnemployed() => builder.setUint16(2, 0, 0);
+
+  // `initFoo(int length)` for lists/data and `initFoo()` for structs
+  // ignore: avoid_setters_without_getters
+  set employer(String value) {
+    builder.setUint16(2, 1, 0);
+    builder.getPointerField(3).setText(value);
+  }
+
+  // ignore: avoid_setters_without_getters
+  set school(String value) {
+    builder.setUint16(2, 2, 0);
+    builder.getPointerField(3).setText(value);
+  }
+
+  void setSelfEmployed() => builder.setUint16(2, 3, 0);
+
+  // TODO(JonasWanke): figure out `which` getter with strings
 }
 
 typedef Person_Employment_Which_Reader
@@ -198,6 +352,50 @@ class AddressBook_Reader {
       reader.getPointerField(0),
       Person_Reader.new,
       null,
+    );
+  }
+
+  @override
+  String toString() => '(people = ${people.inner})';
+}
+
+class AddressBook_Builder extends AddressBook_Reader {
+  const AddressBook_Builder(this.builder) : super(builder);
+
+  static const structSize = StructSize(dataWords: 0, pointerCount: 1);
+
+  static final fromPointer = FromPointerBuilder(
+    initPointer: (builder, length) =>
+        AddressBook_Builder(builder.initStruct(structSize)),
+    getFromPointer: (builder, defaultValue) => builder
+        .getStructBuilder(structSize, defaultValue)
+        .map(AddressBook_Builder.new),
+  );
+  static final fromStruct = FromStructBuilder(
+    fromReader: AddressBook_Reader.new,
+    fromBuilder: AddressBook_Builder.new,
+  );
+
+  final StructBuilder builder;
+
+  @override
+  bool get hasPeople => !builder.getPointerField(0).isNull;
+  @override
+  CapnpResult<StructListBuilder<Person_Reader, Person_Builder>> get people {
+    return StructListBuilder.getFromPointer(
+      builder.getPointerField(0),
+      Person_Builder.structSize,
+      Person_Builder.fromStruct,
+      null,
+    );
+  }
+
+  StructListBuilder<Person_Reader, Person_Builder> initPeople(int length) {
+    return StructListBuilder.initPointer(
+      builder.getPointerField(0),
+      length,
+      Person_Builder.structSize,
+      Person_Builder.fromStruct,
     );
   }
 
