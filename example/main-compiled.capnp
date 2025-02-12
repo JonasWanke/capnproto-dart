@@ -2,8 +2,8 @@
 @0x864fc76b3aa5d047;
 struct ExampleStruct @0xf308e1fe3a31c244 {  # 48 bytes, 7 ptrs
   unit @0 :Void;  # bits[0, 0)
-  boolean @1 :Bool;  # bits[0, 1)
-  booleanList @2 :List(Bool);  # ptr[0]
+  bool @1 :Bool;  # bits[0, 1)
+  boolList @2 :List(Bool);  # ptr[0]
   int8 @3 :Int8;  # bits[8, 16)
   int16 @4 :Int16;  # bits[16, 32)
   int32 @5 :Int32;  # bits[32, 64)
@@ -24,4 +24,4 @@ struct ExampleStruct @0xf308e1fe3a31c244 {  # 48 bytes, 7 ptrs
 struct Foo @0xed08a768d3ca6b68 {  # 8 bytes, 0 ptrs
   bar @0 :UInt8;  # bits[0, 8)
 }
-const example @0xfe4b62167be78aec :ExampleStruct = (unit = void, boolean = true, booleanList = [true, false, false, true, true, true], int8 = -1, int16 = -1, int32 = -1, int64 = -1, uint8 = 1, uint16 = 1, uint16List = [1, 5], uint32 = 12345, uint64 = 1, float32 = 1, float32List = [1, 0.5, 2], float64 = 1, text = "Hello, world!", data = "\001\002\003\004\005", foo = (bar = 123), fooList = [(bar = 5), (bar = 6), (bar = 7)]);
+const example @0xfe4b62167be78aec :ExampleStruct = (unit = void, bool = true, boolList = [true, false, false, true, true, true], int8 = -1, int16 = -1, int32 = -1, int64 = -1, uint8 = 1, uint16 = 1, uint16List = [1, 5], uint32 = 12345, uint64 = 1, float32 = 1, float32List = [1, 0.5, 2], float64 = 1, text = "Hello, world!", data = "\001\002\003\004\005", foo = (bar = 123), fooList = [(bar = 5), (bar = 6), (bar = 7)]);

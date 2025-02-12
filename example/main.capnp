@@ -2,8 +2,8 @@
 
 struct ExampleStruct {
   unit @0 :Void;
-  boolean @1 :Bool;
-  booleanList @2 :List(Bool);
+  bool @1 :Bool;
+  boolList @2 :List(Bool);
   int8 @3 :Int8;
   int16 @4 :Int16;
   int32 @5 :Int32;
@@ -27,8 +27,8 @@ struct Foo {
 }
 
 const example :ExampleStruct = (
-  boolean = true,
-  booleanList = [true, false, false, true, true, true],
+  bool = true,
+  boolList = [true, false, false, true, true, true],
   int8 = -1,
   int16 = -1,
   int32 = -1,
