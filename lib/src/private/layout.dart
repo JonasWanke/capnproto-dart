@@ -6,7 +6,6 @@ import 'package:meta/meta.dart';
 import 'package:oxidized/oxidized.dart';
 
 import '../constants.dart';
-import '../data.dart';
 import '../error.dart';
 import '../serialize.dart';
 import '../utils.dart';
@@ -649,7 +648,7 @@ class PointerReader {
     }
   }
 
-  CapnpResult<DataReader> getData(ByteData? defaultValue) {
+  CapnpResult<ByteData> getData(ByteData? defaultValue) {
     assert(
       defaultValue == null ||
           defaultValue.lengthInBytes == CapnpConstants.bytesPerPointer,
@@ -659,7 +658,7 @@ class PointerReader {
     var segmentId = this.segmentId;
     var reff = pointer;
     if (reff.isNull) {
-      if (defaultValue == null) return Ok(DataReader(_emptyByteData));
+      if (defaultValue == null) return Ok(_emptyByteData);
 
       reff = WirePointer(defaultValue);
       arena = const NullArena();
@@ -696,7 +695,9 @@ class PointerReader {
         return Err(error);
     }
 
-    return Ok(DataReader(data.buffer.asByteData(data.offsetInBytes, size)));
+    return Ok(
+      data.buffer.asByteData(data.offsetInBytes, size).asUnmodifiableView(),
+    );
   }
 }
 
@@ -2012,4 +2013,4 @@ int _roundBitsUpToWords(int bits) =>
 int _roundBytesUpToWords(int bytes) =>
     (bytes + CapnpConstants.bytesPerWord - 1) ~/ CapnpConstants.bytesPerWord;
 
-final _emptyByteData = ByteData(0);
+final _emptyByteData = ByteData(0).asUnmodifiableView();
