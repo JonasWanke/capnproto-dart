@@ -1,0 +1,19 @@
+name: capnproto_generator
+description: Code Generator for capnproto
+version: 0.2.0
+repository: https://github.com/JonasWanke/capnproto-dart
+
+environment:
+  sdk: ^3.6.0
+resolution: workspace
+
+dependencies:
+  capnproto: ^0.2.0
+
+dev_dependencies:
+  supernova_lints:
+    git:
+      url: https://github.com/JonasWanke/supernova.git
+      path: supernova_lints
+      ref: 928156876eaea29e27964c342c753db94034b408
+  test: ^1.24.0
