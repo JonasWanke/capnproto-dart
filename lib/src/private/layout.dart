@@ -7,6 +7,7 @@ import 'package:oxidized/oxidized.dart';
 
 import '../constants.dart';
 import '../error.dart';
+import '../reader_builder.dart';
 import '../serialize.dart';
 import '../utils.dart';
 import 'arena.dart';
@@ -273,7 +274,7 @@ enum WirePointerKind { struct, list, far, other }
 
 enum PointerType { null_, struct, list, capability }
 
-class PointerReader {
+final class PointerReader extends CapnpReader {
   PointerReader._(
     this.arena,
     this.segmentId,
@@ -701,9 +702,8 @@ class PointerReader {
   }
 }
 
-class PointerBuilder extends PointerReader {
-  PointerBuilder._(BuilderArena super.arena, super.segmentId, super.pointer)
-      : super._(nestingLimit: 0x7fffffff);
+final class PointerBuilder extends CapnpBuilder<PointerReader> {
+  PointerBuilder._(this.arena, this.segmentId, this.pointer);
 
   factory PointerBuilder.getRoot(
     BuilderArena arena,
@@ -720,8 +720,21 @@ class PointerBuilder extends PointerReader {
     return PointerBuilder._(arena, segmentId, WirePointer(pointerData));
   }
 
+  final BuilderArena arena;
+  final SegmentId segmentId;
+
+  final WirePointer pointer;
+  bool get isNull => pointer.isNull;
+
   @override
-  BuilderArena get arena => super.arena as BuilderArena;
+  PointerReader get asReader {
+    return PointerReader._(
+      arena,
+      segmentId,
+      pointer,
+      nestingLimit: 0x7fffffff,
+    );
+  }
 
   StructBuilder initStruct(StructSize size) {
     final (segmentId, reff, data) = _allocate(
@@ -1659,7 +1672,7 @@ CapnpResult<(SegmentId, WirePointer, ByteData)> _followBuilderFars(
   return Ok((segmentId, ref, data));
 }
 
-class StructReader {
+final class StructReader extends CapnpReader {
   StructReader._(
     this.arena,
     this.segmentId, {
@@ -1802,16 +1815,34 @@ class StructReader {
   }
 }
 
-class StructBuilder extends StructReader {
+final class StructBuilder extends CapnpBuilder<StructReader> {
   StructBuilder._(
-    super.arena,
-    super.segmentId, {
-    required super.data,
-    required super.pointers,
-  }) : super._(nestingLimit: 0x7fffffff);
+    this.arena,
+    this.segmentId, {
+    required this.data,
+    required this.pointers,
+  });
+
+  final BuilderArena arena;
+  final SegmentId segmentId;
+
+  final ByteData data;
+  int get dataSize => data.lengthInBytes;
+
+  final ByteData pointers;
+  int get pointerCount =>
+      pointers.lengthInBytes ~/ CapnpConstants.bytesPerPointer;
 
   @override
-  BuilderArena get arena => super.arena as BuilderArena;
+  StructReader get asReader {
+    return StructReader._(
+      arena,
+      segmentId,
+      data: data,
+      pointers: pointers,
+      nestingLimit: 0x7fffffff,
+    );
+  }
 
   // ignore: avoid_positional_boolean_parameters
   void setBool(int index, bool value, bool mask) {
@@ -1827,9 +1858,19 @@ class StructBuilder extends StructReader {
 
   // Integers
 
+  int getInt8(int index, int mask) {
+    assert(index >= 0);
+    return data.getInt8(index) ^ mask;
+  }
+
   void setInt8(int index, int value, int mask) {
     assert(index >= 0);
     data.setInt8(index, value ^ mask);
+  }
+
+  int getUint8(int index, int mask) {
+    assert(index >= 0);
+    return data.getUint8(index) ^ mask;
   }
 
   void setUint8(int index, int value, int mask) {
@@ -1837,9 +1878,19 @@ class StructBuilder extends StructReader {
     data.setUint8(index, value ^ mask);
   }
 
+  int getInt16(int index, int mask) {
+    assert(index >= 0);
+    return data.getInt16(index * 2, Endian.little) ^ mask;
+  }
+
   void setInt16(int index, int value, int mask) {
     assert(index >= 0);
     data.setInt16(index * 2, value ^ mask, Endian.little);
+  }
+
+  int getUint16(int index, int mask) {
+    assert(index >= 0);
+    return data.getUint16(index * 2, Endian.little) ^ mask;
   }
 
   void setUint16(int index, int value, int mask) {
@@ -1847,9 +1898,19 @@ class StructBuilder extends StructReader {
     data.setUint16(index * 2, value ^ mask, Endian.little);
   }
 
+  int getInt32(int index, int mask) {
+    assert(index >= 0);
+    return data.getInt32(index * 4, Endian.little) ^ mask;
+  }
+
   void setInt32(int index, int value, int mask) {
     assert(index >= 0);
     data.setInt32(index * 4, value ^ mask, Endian.little);
+  }
+
+  int getUint32(int index, int mask) {
+    assert(index >= 0);
+    return data.getUint32(index * 4, Endian.little) ^ mask;
   }
 
   void setUint32(int index, int value, int mask) {
@@ -1857,9 +1918,19 @@ class StructBuilder extends StructReader {
     data.setUint32(index * 4, value ^ mask, Endian.little);
   }
 
+  int getInt64(int index, int mask) {
+    assert(index >= 0);
+    return data.getInt64(index * 8, Endian.little) ^ mask;
+  }
+
   void setInt64(int index, int value, int mask) {
     assert(index >= 0);
     data.setInt64(index * 8, value ^ mask, Endian.little);
+  }
+
+  int getUint64(int index, int mask) {
+    assert(index >= 0);
+    return data.getUint64(index * 8, Endian.little) ^ mask;
   }
 
   void setUint64(int index, int value, int mask) {
@@ -1871,6 +1942,17 @@ class StructBuilder extends StructReader {
 
   static final _floatXorData = ByteData(8);
 
+  double getFloat32(int index, int mask) {
+    assert(index >= 0);
+    if (mask == 0) return data.getFloat32(index * 4, Endian.little);
+
+    final valueBits = data.getUint32(index * 4, Endian.little);
+    // We need to perform a bitwise XOR on the float to apply the mask. [data]
+    // might be unmodifiable, so we use a temporary buffer.
+    _floatXorData.setInt32(0, valueBits ^ mask);
+    return _floatXorData.getFloat32(0);
+  }
+
   void setFloat32(int index, double value, int mask) {
     assert(index >= 0);
     data.setFloat32(index * 4, value, Endian.little);
@@ -1878,6 +1960,18 @@ class StructBuilder extends StructReader {
 
     final valueBits = _floatXorData.getInt32(0, Endian.little);
     _floatXorData.setInt32(index * 4, valueBits ^ mask, Endian.little);
+  }
+
+  double getFloat64(int index, int mask) {
+    assert(index >= 0);
+    if (mask == 0) return data.getFloat64(index * 8, Endian.little);
+
+    // TODO(JonasWanke): Avoid 64 bit ints completely to support JS?
+    final valueBits = data.getUint64(index * 8, Endian.little);
+    // We need to perform a bitwise XOR on the float to apply the mask. [data]
+    // might be unmodifiable, so we use a temporary buffer.
+    _floatXorData.setInt64(0, valueBits ^ mask);
+    return _floatXorData.getFloat64(0);
   }
 
   void setFloat64(int index, double value, int mask) {
@@ -1891,7 +1985,6 @@ class StructBuilder extends StructReader {
 
   // Pointer
 
-  @override
   PointerBuilder getPointerField(int index) {
     assert(index >= 0);
     return PointerBuilder._(
@@ -1902,7 +1995,7 @@ class StructBuilder extends StructReader {
   }
 }
 
-class ListReader {
+final class ListReader extends CapnpReader {
   ListReader._(
     this.arena,
     this.segmentId,
@@ -1961,17 +2054,17 @@ class ListReader {
   }
 }
 
-class ListBuilder extends ListReader {
+final class ListBuilder extends CapnpBuilder<ListReader> {
   ListBuilder._(
-    super.arena,
-    super.segmentId,
-    super.data, {
-    required super.elementSize,
-    required super.length,
-    required super.stepBits,
-    required super.structDataSizeBits,
-    required super.structPointerCount,
-  }) : super._(nestingLimit: 0x7fffffff);
+    this.arena,
+    this.segmentId,
+    this.data, {
+    required this.elementSize,
+    required this.length,
+    required this.stepBits,
+    required this.structDataSizeBits,
+    required this.structPointerCount,
+  });
 
   factory ListBuilder.defaultBuilder(BuilderArena arena) {
     return ListBuilder._(
@@ -1986,7 +2079,34 @@ class ListBuilder extends ListReader {
     );
   }
 
+  final BuilderArena arena;
+  final SegmentId segmentId;
+  final ByteData data;
+
+  final ElementSize elementSize;
+  final int length;
+  bool get isEmpty => length == 0;
+  bool get isNotEmpty => !isEmpty;
+
+  final int stepBits;
+  final int structDataSizeBits;
+  final int structPointerCount;
+
   @override
+  ListReader get asReader {
+    return ListReader._(
+      arena,
+      segmentId,
+      data,
+      elementSize: elementSize,
+      length: length,
+      stepBits: stepBits,
+      structDataSizeBits: structDataSizeBits,
+      structPointerCount: structPointerCount,
+      nestingLimit: 0x7fffffff,
+    );
+  }
+
   StructBuilder getStructElement(int index) {
     assert(0 <= index && index < length);
     final indexByte = (index * stepBits) ~/ CapnpConstants.bitsPerByte;

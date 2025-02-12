@@ -6,6 +6,7 @@ import 'any_pointer.dart';
 import 'error.dart';
 import 'private/arena.dart';
 import 'private/layout.dart';
+import 'reader_builder.dart';
 import 'serialize.dart';
 
 @immutable
@@ -77,7 +78,9 @@ class MessageReader {
   final ReaderArenaImpl _arena;
 
   /// Gets the root of the message, interpreting it as the given type.
-  CapnpResult<T> getRoot<T>(FromPointerReader<T> fromPointer) =>
+  CapnpResult<R> getRoot<R extends CapnpReader>(
+    FromPointerReader<R> fromPointer,
+  ) =>
       _getRootInternal().andThen((it) => it.getAs(fromPointer));
   CapnpResult<AnyPointerReader> _getRootInternal() {
     return PointerReader.getRoot(
@@ -96,19 +99,29 @@ class MessageBuilder {
   List<ByteData> get segmentsForOutput => _arena.segmentsForOutput;
 
   /// Initializes the root as a value of the given type.
-  T initRoot<T>(FromPointerBuilder<T> fromPointer) =>
+  B initRoot<B extends CapnpBuilder<R>, R extends CapnpReader>(
+    FromPointerBuilder<B, R> fromPointer,
+  ) =>
       _getRootInternal().initAs(fromPointer);
 
   /// Initializes the root as a value of the given list type with the given
   /// length.
-  T initRootAsListOf<T>(FromPointerBuilder<T> fromPointer, int length) =>
+  B initRootAsListOf<B extends CapnpBuilder<R>, R extends CapnpReader>(
+    FromPointerBuilder<B, R> fromPointer,
+    int length,
+  ) =>
       _getRootInternal().initAsListOf(fromPointer, length);
 
   /// Gets the root, interpreting it as the given type.
-  CapnpResult<T> getRoot<T>(FromPointerBuilder<T> fromPointer) =>
+  CapnpResult<B> getRoot<B extends CapnpBuilder<R>, R extends CapnpReader>(
+    FromPointerBuilder<B, R> fromPointer,
+  ) =>
       _getRootInternal().getAs(fromPointer);
 
-  CapnpResult<T> getRootAsReader<T>(FromPointerReader<T> fromPointer) {
+  CapnpResult<R>
+      getRootAsReader<B extends CapnpBuilder<R>, R extends CapnpReader>(
+    FromPointerReader<R> fromPointer,
+  ) {
     if (_arena.isEmpty) {
       return AnyPointerReader(PointerReader.defaultReader).getAs(fromPointer);
     }
@@ -133,24 +146,22 @@ class MessageBuilder {
   }
 }
 
-typedef FromPointerReader<T> = CapnpResult<T> Function(
+typedef FromPointerReader<R extends CapnpReader> = CapnpResult<R> Function(
   PointerReader reader,
   ByteData? defaultValue,
 );
 
-final class FromPointerBuilder<T> {
+final class FromPointerBuilder<B extends CapnpBuilder<R>,
+    R extends CapnpReader> {
   FromPointerBuilder({required this.initPointer, required this.getFromPointer});
 
-  final T Function(PointerBuilder builder, int length) initPointer;
-  final CapnpResult<T> Function(PointerBuilder builder, ByteData? defaultValue)
+  final B Function(PointerBuilder builder, int length) initPointer;
+  final CapnpResult<B> Function(PointerBuilder builder, ByteData? defaultValue)
       getFromPointer;
 }
 
-typedef FromStructReader<T> = T Function(StructReader reader);
-
-final class FromStructBuilder<T, B extends T> {
-  FromStructBuilder({required this.fromReader, required this.fromBuilder});
-
-  final FromStructReader<T> fromReader;
-  final B Function(StructBuilder builder) fromBuilder;
-}
+typedef FromStructReader<R extends CapnpReader> = R Function(
+  StructReader reader,
+);
+typedef FromStructBuilder<B extends CapnpBuilder<R>, R extends CapnpReader> = B
+    Function(StructBuilder builder);

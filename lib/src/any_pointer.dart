@@ -1,27 +1,40 @@
 import 'error.dart';
 import 'message.dart';
 import 'private/layout.dart';
+import 'reader_builder.dart';
 
-class AnyPointerReader {
-  AnyPointerReader(this._reader);
+final class AnyPointerReader extends CapnpReader {
+  AnyPointerReader(this.reader);
 
-  final PointerReader _reader;
+  final PointerReader reader;
 
-  CapnpResult<T> getAs<T>(FromPointerReader<T> fromPointer) =>
-      fromPointer(_reader, null);
+  CapnpResult<R> getAs<R extends CapnpReader>(
+    FromPointerReader<R> fromPointer,
+  ) =>
+      fromPointer(reader, null);
 }
 
-class AnyPointerBuilder {
-  AnyPointerBuilder(this._builder);
+final class AnyPointerBuilder extends CapnpBuilder<AnyPointerReader> {
+  AnyPointerBuilder(this.builder);
 
-  final PointerBuilder _builder;
+  final PointerBuilder builder;
 
-  CapnpResult<T> getAs<T>(FromPointerBuilder<T> fromPointer) =>
-      fromPointer.getFromPointer(_builder, null);
-  T initAs<T>(FromPointerBuilder<T> fromPointer) =>
-      fromPointer.initPointer(_builder, 0);
-  T initAsListOf<T>(FromPointerBuilder<T> fromPointer, int length) =>
-      fromPointer.initPointer(_builder, length);
+  @override
+  AnyPointerReader get asReader => AnyPointerReader(builder.asReader);
+
+  CapnpResult<B> getAs<B extends CapnpBuilder<R>, R extends CapnpReader>(
+    FromPointerBuilder<B, R> fromPointer,
+  ) =>
+      fromPointer.getFromPointer(builder, null);
+  B initAs<B extends CapnpBuilder<R>, R extends CapnpReader>(
+    FromPointerBuilder<B, R> fromPointer,
+  ) =>
+      fromPointer.initPointer(builder, 0);
+  B initAsListOf<B extends CapnpBuilder<R>, R extends CapnpReader>(
+    FromPointerBuilder<B, R> fromPointer,
+    int length,
+  ) =>
+      fromPointer.initPointer(builder, length);
 
   // TODO(JonasWanke): setAs(…)
 }

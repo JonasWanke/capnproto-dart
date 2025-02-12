@@ -3,13 +3,14 @@ import 'dart:typed_data';
 import 'error.dart';
 import 'message.dart';
 import 'private/layout.dart';
+import 'reader_builder.dart';
 
-class StructListReader<T> extends Iterable<T> {
-  const StructListReader(this.reader, this.fromStructReader);
+class StructListReader<R extends CapnpReader> extends Iterable<R> {
+  const StructListReader(this.reader, this.fromStruct);
 
-  static CapnpResult<StructListReader<T>> fromPointer<T>(
+  static CapnpResult<StructListReader<R>> fromPointer<R extends CapnpReader>(
     PointerReader reader,
-    FromStructReader<T> fromStruct,
+    FromStructReader<R> fromStruct,
     ByteData? defaultValue,
   ) {
     return reader
@@ -21,10 +22,10 @@ class StructListReader<T> extends Iterable<T> {
   }
 
   final ListReader reader;
-  final FromStructReader<T> fromStructReader;
+  final FromStructReader<R> fromStruct;
 
   @override
-  Iterator<T> get iterator =>
+  Iterator<R> get iterator =>
       Iterable.generate(length, (index) => this[index]).iterator;
 
   @override
@@ -33,49 +34,72 @@ class StructListReader<T> extends Iterable<T> {
   bool get isEmpty => length == 0;
 
   @override
-  T get last {
+  R get last {
     if (isEmpty) throw StateError('No element');
     return this[length - 1];
   }
 
-  T operator [](int index) => fromStructReader(reader.getStructElement(index));
+  R operator [](int index) => fromStruct(reader.getStructElement(index));
   @override
-  T elementAt(int index) => this[index];
+  R elementAt(int index) => this[index];
 }
 
-class StructListBuilder<T, B extends T> extends StructListReader<T> {
-  StructListBuilder(this.builder, this.fromStruct)
-      : super(builder, fromStruct.fromReader);
+class StructListBuilder<B extends CapnpBuilder<R>, R extends CapnpReader>
+    extends Iterable<B> {
+  StructListBuilder(
+    this.builder,
+    this.fromStructBuilder,
+    this.fromStructReader,
+  );
 
   factory StructListBuilder.initPointer(
     PointerBuilder builder,
     int length,
     StructSize structSize,
-    FromStructBuilder<T, B> fromStruct,
+    FromStructBuilder<B, R> fromStructBuilder,
+    FromStructReader<R> fromStructReader,
   ) {
     return StructListBuilder(
       builder.initStructList(length, structSize),
-      fromStruct,
+      fromStructBuilder,
+      fromStructReader,
     );
   }
 
-  static CapnpResult<StructListBuilder<T, B>> getFromPointer<T, B extends T>(
+  static CapnpResult<StructListBuilder<B, R>>
+      getFromPointer<B extends CapnpBuilder<R>, R extends CapnpReader>(
     PointerBuilder builder,
     StructSize structSize,
-    FromStructBuilder<T, B> fromStruct,
+    FromStructBuilder<B, R> fromStructBuilder,
+    FromStructReader<R> fromStructReader,
     ByteData? defaultValue,
   ) {
-    return builder
-        .getStructList(structSize, defaultValue)
-        .map((it) => StructListBuilder(it, fromStruct));
+    return builder.getStructList(structSize, defaultValue).map(
+          (it) => StructListBuilder(it, fromStructBuilder, fromStructReader),
+        );
   }
 
   final ListBuilder builder;
-  final FromStructBuilder<T, B> fromStruct;
+  final FromStructBuilder<B, R> fromStructBuilder;
+  final FromStructReader<R> fromStructReader;
 
   @override
+  Iterator<B> get iterator =>
+      Iterable.generate(length, (index) => this[index]).iterator;
+
+  @override
+  int get length => builder.length;
+  @override
+  bool get isEmpty => length == 0;
+
+  @override
+  B get last {
+    if (isEmpty) throw StateError('No element');
+    return this[length - 1];
+  }
+
   B operator [](int index) =>
-      fromStruct.fromBuilder(builder.getStructElement(index));
+      fromStructBuilder(builder.getStructElement(index));
   @override
   B elementAt(int index) => this[index];
 }
