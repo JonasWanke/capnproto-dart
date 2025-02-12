@@ -1,12 +1,13 @@
 name: capnproto
 description: Cap'n Proto is an extremely efficient protocol for sharing data and capabilities.
 version: 0.2.0
-homepage: https://github.com/JonasWanke/capnproto-dart
+repository: https://github.com/JonasWanke/capnproto-dart
 
 environment:
   # When updating this, also update the matrixes in
   # `.github/workflows/build.yml`.
-  sdk: ^3.4.2
+  sdk: ^3.6.0
+resolution: workspace
 
 dependencies:
   collection: ^1.15.0
@@ -14,9 +15,9 @@ dependencies:
   oxidized: ^6.2.0
 
 dev_dependencies:
-  supernova:
+  supernova_lints:
     git:
       url: https://github.com/JonasWanke/supernova.git
-      path: supernova
-      ref: f493a5092722288669aca81decbf7b00f528adca
+      path: supernova_lints
+      ref: 928156876eaea29e27964c342c753db94034b408
   test: ^1.17.3
