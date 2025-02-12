@@ -7,4 +7,3 @@ export 'src/message.dart';
 export 'src/private/layout.dart';
 export 'src/serialize.dart';
 export 'src/struct_list.dart';
-export 'src/text.dart';

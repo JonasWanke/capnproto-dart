@@ -17,8 +17,6 @@ Future<void> main(List<String> args) async {
       .unwrap();
   print(addressBook);
 
-  addressBook.people.unwrap()[0].name.toString();
-
   await _writeAddressBookTo(writeFile);
 }
 
@@ -68,12 +66,10 @@ class Person_Reader {
   int get id => reader.getUint32(0, 0);
 
   bool get hasName => !reader.getPointerField(0).isNull;
-  CapnpResult<TextReader> get name =>
-      TextReader.fromPointer(reader.getPointerField(0), null);
+  CapnpResult<String> get name => reader.getPointerField(0).getText(null);
 
   bool get hasEmail => !reader.getPointerField(1).isNull;
-  CapnpResult<TextReader> get email =>
-      TextReader.fromPointer(reader.getPointerField(1), null);
+  CapnpResult<String> get email => reader.getPointerField(1).getText(null);
 
   bool get hasPhones => !reader.getPointerField(2).isNull;
   CapnpResult<StructListReader<Person_PhoneNumber_Reader>> get phones {
@@ -159,8 +155,7 @@ class Person_PhoneNumber_Reader {
   final StructReader reader;
 
   bool get hasNumber => !reader.getPointerField(0).isNull;
-  CapnpResult<TextReader> get number =>
-      TextReader.fromPointer(reader.getPointerField(0), null);
+  CapnpResult<String> get number => reader.getPointerField(0).getText(null);
 
   Person_PhoneNumber_Type get type =>
       Person_PhoneNumber_Type.fromValue(reader.getUint16(0, 0));
@@ -235,12 +230,12 @@ class Person_Employment_Reader {
       0 => const Ok(Person_Employment_Which_Unemployed()),
       1 => Ok(
           Person_Employment_Which_Employer(
-            TextReader.fromPointer(reader.getPointerField(3), null),
+            reader.getPointerField(3).getText(null),
           ),
         ),
       2 => Ok(
           Person_Employment_Which_School(
-            TextReader.fromPointer(reader.getPointerField(3), null),
+            reader.getPointerField(3).getText(null),
           ),
         ),
       3 => const Ok(Person_Employment_Which_SelfEmployed()),
@@ -292,7 +287,7 @@ class Person_Employment_Builder extends Person_Employment_Reader {
 }
 
 typedef Person_Employment_Which_Reader
-    = Person_Employment_Which<CapnpResult<TextReader>, CapnpResult<TextReader>>;
+    = Person_Employment_Which<CapnpResult<String>, CapnpResult<String>>;
 
 sealed class Person_Employment_Which<A0, A1> {
   const Person_Employment_Which();

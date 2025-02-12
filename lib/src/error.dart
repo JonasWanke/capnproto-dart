@@ -135,6 +135,12 @@ class MessageContainsTextThatIsNotNULTerminatedCapnpError extends CapnpError {
   const MessageContainsTextThatIsNotNULTerminatedCapnpError();
 }
 
+class MessageContainsTextWithInvalidUtf8CapnpError extends CapnpError {
+  const MessageContainsTextWithInvalidUtf8CapnpError(this.bytes);
+
+  final List<int> bytes;
+}
+
 // Data
 
 class MessageContainsNonListPointerWhereDataWasExpectedCapnpError

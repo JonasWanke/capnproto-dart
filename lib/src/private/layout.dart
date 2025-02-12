@@ -9,7 +9,6 @@ import '../constants.dart';
 import '../data.dart';
 import '../error.dart';
 import '../serialize.dart';
-import '../text.dart';
 import '../utils.dart';
 import 'arena.dart';
 
@@ -576,7 +575,18 @@ class PointerReader {
     }
   }
 
-  CapnpResult<TextReader> getText(ByteData? defaultValue) {
+  /// Read a text value from the pointer.
+  ///
+  /// The optional [allowMalformed] argument defines how to deal with invalid or
+  /// unterminated character sequences.
+  ///
+  /// If it is `true`, replace invalid (or unterminated) character sequences
+  /// with the Unicode Replacement character `U+FFFD` (�). Otherwise, return
+  /// and [Err] containing a [MessageContainsTextWithInvalidUtf8CapnpError].
+  CapnpResult<String> getText(
+    ByteData? defaultValue, {
+    bool allowMalformed = false,
+  }) {
     assert(
       defaultValue == null ||
           defaultValue.lengthInBytes == CapnpConstants.bytesPerPointer,
@@ -586,7 +596,7 @@ class PointerReader {
     var segmentId = this.segmentId;
     var reff = pointer;
     if (reff.isNull) {
-      if (defaultValue == null) return Ok(TextReader(Uint8List(0)));
+      if (defaultValue == null) return const Ok('');
 
       reff = WirePointer(defaultValue);
       arena = const NullArena();
@@ -627,9 +637,16 @@ class PointerReader {
       return const Err(MessageContainsTextThatIsNotNULTerminatedCapnpError());
     }
 
-    return Ok(
-      TextReader(data.buffer.asUint8List(data.offsetInBytes, size - 1)),
-    );
+    final textBytes = data.buffer.asUint8List(data.offsetInBytes, size - 1);
+    if (allowMalformed) {
+      return Ok(const Utf8Decoder(allowMalformed: true).convert(textBytes));
+    } else {
+      try {
+        return Ok(const Utf8Decoder().convert(textBytes));
+      } on FormatException {
+        return Err(MessageContainsTextWithInvalidUtf8CapnpError(textBytes));
+      }
+    }
   }
 
   CapnpResult<DataReader> getData(ByteData? defaultValue) {
