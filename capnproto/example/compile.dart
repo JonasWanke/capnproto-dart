@@ -3,14 +3,14 @@
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:supernova/supernova.dart';
+import 'package:collection/collection.dart';
 
 Future<void> main(List<String> args) async {
   final Uint8List messageBytes;
   switch (args) {
     case []:
       final messageChunks = await stdin.toList();
-      messageBytes = Uint8List(messageChunks.sumBy((it) => it.length));
+      messageBytes = Uint8List(messageChunks.map((it) => it.length).sum);
       var offset = 0;
       for (final chunk in messageChunks) {
         messageBytes.setAll(offset, chunk);
