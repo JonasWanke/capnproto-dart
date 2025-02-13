@@ -7,6 +7,7 @@ import '../constants.dart';
 import '../error.dart';
 import '../message.dart';
 import '../serialize.dart';
+import '../utils.dart';
 import 'read_limiter.dart';
 
 abstract class ReaderArena {
@@ -15,6 +16,7 @@ abstract class ReaderArena {
   CapnpResult<ByteData> getSegment(SegmentId id);
 
   CapnpResult<void> checkOffset(SegmentId segmentId, int offset);
+  CapnpResult<ByteData> getOffset(SegmentId segmentId, int offset);
   CapnpResult<ByteData> getInterval(
     SegmentId segmentId,
     int start,
@@ -37,6 +39,17 @@ class ReaderArenaImpl extends ReaderArena {
     final segment = _segments.getSegment(id);
     if (segment == null) return Err(InvalidSegmentIdCapnpError(id));
     return Ok(segment);
+  }
+
+  @override
+  CapnpResult<ByteData> getOffset(SegmentId segmentId, int offset) {
+    return getSegment(segmentId).andThen((segment) {
+      if (offset < 0 || offset > segment.lengthInBytes) {
+        return const Err(MessageContainsOutOfBoundsPointerCapnpError());
+      }
+
+      return Ok(segment.offsetBytes(offset));
+    });
   }
 
   @override
@@ -84,6 +97,9 @@ class NullArena extends ReaderArena {
   @override
   CapnpResult<void> checkOffset(SegmentId segmentId, int offset) =>
       const Ok(null);
+  @override
+  CapnpResult<ByteData> getOffset(SegmentId segmentId, int offset) =>
+      Ok(ByteData(0));
   @override
   CapnpResult<ByteData> getInterval(
     SegmentId segmentId,
@@ -184,6 +200,18 @@ class BuilderArenaImpl extends BuilderArena {
   @override
   CapnpResult<void> checkOffset(SegmentId segmentId, int offset) =>
       const Ok(null);
+
+  @override
+  CapnpResult<ByteData> getOffset(SegmentId segmentId, int offset) {
+    final segment = getSegmentMut(segmentId);
+    assert(segment.offsetInBytes == 0);
+
+    if (offset < 0 || offset > segment.buffer.lengthInBytes) {
+      return const Err(MessageContainsOutOfBoundsPointerCapnpError());
+    }
+
+    return Ok(segment.offsetBytes(offset));
+  }
 
   @override
   CapnpResult<ByteData> getInterval(

@@ -119,9 +119,9 @@ final class WirePointer {
   /// [WirePointerKind.far] and [WirePointerKind.other].
   bool get isPositional => _offsetAndKind & 2 == 0;
 
-  ByteData get target => data.buffer.asByteData(data.offsetInBytes + _offset);
+  ByteData get target => data.offsetBytes(_offset);
 
-  CapnpResult<int> _targetFromSegment(
+  CapnpResult<ByteData> _targetFromSegment(
     ReaderArena arena,
     SegmentId segmentId,
   ) {
@@ -134,8 +134,8 @@ final class WirePointer {
     }
     assert(segment.buffer == data.buffer);
 
-    final target = data.offsetInBytes + _offset - segment.offsetInBytes;
-    return arena.checkOffset(segmentId, target).map((_) => target);
+    final target = data.offsetInBytes - segment.offsetInBytes + _offset;
+    return arena.getOffset(segmentId, target);
   }
 
   // Struct
@@ -342,12 +342,12 @@ final class PointerReader extends CapnpReader {
       return const Err(MessageIsTooDeeplyNestedOrContainsCyclesCapnpError());
     }
 
-    final int start;
-    switch (_followFars(arena, reff, segmentId)) {
-      case Ok(value: (final reffValue, final segmentIdValue, final startValue)):
-        reff = reffValue;
-        segmentId = segmentIdValue;
-        start = startValue;
+    final ByteData data;
+    switch (_followFars(arena, segmentId, reff)) {
+      case Ok(value: (final newReff, final newSegmentId, final newData)):
+        reff = newReff;
+        segmentId = newSegmentId;
+        data = newData;
       case Err(:final error):
         return Err(error);
     }
@@ -359,32 +359,13 @@ final class PointerReader extends CapnpReader {
       );
     }
 
-    final ByteData data;
-    switch (arena.getInterval(segmentId, start, reff.structDataSize)) {
-      case Ok(:final value):
-        data = value;
-      case Err(:final error):
-        return Err(error);
-    }
-
-    final ByteData pointers;
-    switch (arena.getInterval(
-      segmentId,
-      start + data.lengthInBytes,
-      reff.structPointerCount,
-    )) {
-      case Ok(:final value):
-        pointers = value;
-      case Err(:final error):
-        return Err(error);
-    }
-
     return Ok(
       StructReader._(
         arena,
         segmentId,
-        data: data,
-        pointers: pointers,
+        data: data.offsetWords(0, reff.structDataSize),
+        pointers:
+            data.offsetWords(reff.structDataSize, reff.structPointerCount),
         nestingLimit: nestingLimit - 1,
       ),
     );
@@ -409,12 +390,12 @@ final class PointerReader extends CapnpReader {
 
     if (nestingLimit <= 0) return const Err(NestingLimitExceededCapnpError());
 
-    final int start;
-    switch (_followFars(arena, reff, segmentId)) {
-      case Ok(value: (final reffValue, final segmentIdValue, final startValue)):
-        reff = reffValue;
-        segmentId = segmentIdValue;
-        start = startValue;
+    ByteData data;
+    switch (_followFars(arena, segmentId, reff)) {
+      case Ok(value: (final newReff, final newSegmentId, final newData)):
+        reff = newReff;
+        segmentId = newSegmentId;
+        data = newData;
       case Err(:final error):
         return Err(error);
     }
@@ -429,17 +410,14 @@ final class PointerReader extends CapnpReader {
     switch (elementSize) {
       case ElementSize.inlineComposite:
         final wordCount = reff.listInlineCompositeWordCount;
-
-        ByteData data;
-        switch (arena.getInterval(segmentId, start, wordCount)) {
-          case Ok(:final value):
-            data = value;
-          case Err(:final error):
-            return Err(error);
+        if (data.lengthInBytes <
+            (CapnpConstants.wordsPerPointer + wordCount) *
+                CapnpConstants.bytesPerWord) {
+          return const Err(MessageContainsOutOfBoundsPointerCapnpError());
         }
+
         final tag = WirePointer.fromOffset(data, 0);
-        data = data.buffer
-            .asByteData(data.offsetInBytes + CapnpConstants.bytesPerPointer);
+        data = data.offsetWords(1, wordCount);
 
         if (tag.kind != WirePointerKind.struct) {
           return const Err(
@@ -524,13 +502,10 @@ final class PointerReader extends CapnpReader {
             dataSizeBits + pointerCount * CapnpConstants.bitsPerPointer;
 
         final wordCount = _roundBitsUpToWords(elementCount * step);
-        final ByteData data;
-        switch (arena.getInterval(segmentId, start, wordCount)) {
-          case Ok(:final value):
-            data = value;
-          case Err(:final error):
-            return Err(error);
+        if (data.lengthInBytes < wordCount * CapnpConstants.bytesPerWord) {
+          return const Err(MessageContainsOutOfBoundsPointerCapnpError());
         }
+        data = data.offsetWords(0, wordCount);
 
         if (elementSize == ElementSize.void_) {
           if (arena.amplifiedRead(elementCount) case Err(:final error)) {
@@ -603,12 +578,12 @@ final class PointerReader extends CapnpReader {
       segmentId = SegmentId.zero;
     }
 
-    final int start;
-    switch (_followFars(arena, reff, segmentId)) {
-      case Ok(value: (final reffValue, final segmentIdValue, final startValue)):
-        reff = reffValue;
-        segmentId = segmentIdValue;
-        start = startValue;
+    final ByteData data;
+    switch (_followFars(arena, segmentId, reff)) {
+      case Ok(value: (final newReff, final newSegmentId, final newData)):
+        reff = newReff;
+        segmentId = newSegmentId;
+        data = newData;
       case Err(:final error):
         return Err(error);
     }
@@ -625,12 +600,9 @@ final class PointerReader extends CapnpReader {
     }
 
     final size = reff.listElementCount;
-    final ByteData data;
-    switch (arena.getInterval(segmentId, start, _roundBytesUpToWords(size))) {
-      case Ok(:final value):
-        data = value;
-      case Err(:final error):
-        return Err(error);
+    final sizeWords = _roundBytesUpToWords(size);
+    if (data.lengthInBytes < sizeWords * CapnpConstants.bytesPerWord) {
+      return const Err(MessageContainsOutOfBoundsPointerCapnpError());
     }
 
     if (size == 0 || data.getUint8(size - 1) != 0) {
@@ -666,12 +638,12 @@ final class PointerReader extends CapnpReader {
       segmentId = SegmentId.zero;
     }
 
-    final int start;
-    switch (_followFars(arena, reff, segmentId)) {
-      case Ok(value: (final reffValue, final segmentIdValue, final startValue)):
-        reff = reffValue;
-        segmentId = segmentIdValue;
-        start = startValue;
+    final ByteData data;
+    switch (_followFars(arena, segmentId, reff)) {
+      case Ok(value: (final newReff, final newSegmentId, final newData)):
+        reff = newReff;
+        segmentId = newSegmentId;
+        data = newData;
       case Err(:final error):
         return Err(error);
     }
@@ -688,17 +660,12 @@ final class PointerReader extends CapnpReader {
     }
 
     final size = reff.listElementCount;
-    final ByteData data;
-    switch (arena.getInterval(segmentId, start, _roundBytesUpToWords(size))) {
-      case Ok(:final value):
-        data = value;
-      case Err(:final error):
-        return Err(error);
+    final sizeWords = _roundBytesUpToWords(size);
+    if (data.lengthInBytes < sizeWords * CapnpConstants.bytesPerWord) {
+      return const Err(MessageContainsOutOfBoundsPointerCapnpError());
     }
 
-    return Ok(
-      data.buffer.asByteData(data.offsetInBytes, size).asUnmodifiableView(),
-    );
+    return Ok(data.offsetBytes(0, size).asUnmodifiableView());
   }
 }
 
@@ -1614,15 +1581,15 @@ final class PointerBuilder extends CapnpBuilder<PointerReader> {
 ///   than [WirePointerKind.far]
 /// - the ID of the segment on which the pointed-to object lives
 /// - the offset of the pointed-to object in its segment
-CapnpResult<(WirePointer, SegmentId, int)> _followFars(
+CapnpResult<(WirePointer, SegmentId, ByteData)> _followFars(
   ReaderArena arena,
-  WirePointer reff,
   SegmentId segmentId,
+  WirePointer reff,
 ) {
   if (reff.kind != WirePointerKind.far) {
     return reff
         ._targetFromSegment(arena, segmentId)
-        .map((target) => (reff, segmentId, target));
+        .map((data) => (reff, segmentId, data));
   }
 
   final farSegmentId = reff.farSegmentId;
@@ -1650,7 +1617,12 @@ CapnpResult<(WirePointer, SegmentId, int)> _followFars(
   final tag = WirePointer.fromOffset(newPointerData, 1);
   final doubleFarSegmentId = pad.farSegmentId;
 
-  return Ok((tag, doubleFarSegmentId, pad.farPositionInSegment));
+  return arena
+      .getOffset(
+        doubleFarSegmentId,
+        pad.farPositionInSegment * CapnpConstants.bytesPerWord,
+      )
+      .map((data) => (tag, doubleFarSegmentId, data));
 }
 
 /// If [ref] is a far pointer, follow it. On return, [ref] will have been
@@ -1736,7 +1708,7 @@ final class StructReader extends CapnpReader {
     return data.getInt8(index) ^ mask;
   }
 
-  int getUint8(int index, int mask) {
+  int getUInt8(int index, int mask) {
     assert(index >= 0);
     if (index > dataSize) return mask;
     return data.getUint8(index) ^ mask;
@@ -1748,7 +1720,7 @@ final class StructReader extends CapnpReader {
     return data.getInt16(index * 2, Endian.little) ^ mask;
   }
 
-  int getUint16(int index, int mask) {
+  int getUInt16(int index, int mask) {
     assert(index >= 0);
     if (index * 2 > dataSize) return mask;
     return data.getUint16(index * 2, Endian.little) ^ mask;
@@ -1760,7 +1732,7 @@ final class StructReader extends CapnpReader {
     return data.getInt32(index * 4, Endian.little) ^ mask;
   }
 
-  int getUint32(int index, int mask) {
+  int getUInt32(int index, int mask) {
     assert(index >= 0);
     if (index * 4 > dataSize) return mask;
     return data.getUint32(index * 4, Endian.little) ^ mask;
@@ -1772,7 +1744,7 @@ final class StructReader extends CapnpReader {
     return data.getInt64(index * 8, Endian.little) ^ mask;
   }
 
-  int getUint64(int index, int mask) {
+  int getUInt64(int index, int mask) {
     assert(index >= 0);
     if (index * 8 > dataSize) return mask;
     return data.getUint64(index * 8, Endian.little) ^ mask;
@@ -1882,12 +1854,12 @@ final class StructBuilder extends CapnpBuilder<StructReader> {
     data.setInt8(index, value ^ mask);
   }
 
-  int getUint8(int index, int mask) {
+  int getUInt8(int index, int mask) {
     assert(index >= 0);
     return data.getUint8(index) ^ mask;
   }
 
-  void setUint8(int index, int value, int mask) {
+  void setUInt8(int index, int value, int mask) {
     assert(index >= 0);
     data.setUint8(index, value ^ mask);
   }
@@ -1902,12 +1874,12 @@ final class StructBuilder extends CapnpBuilder<StructReader> {
     data.setInt16(index * 2, value ^ mask, Endian.little);
   }
 
-  int getUint16(int index, int mask) {
+  int getUInt16(int index, int mask) {
     assert(index >= 0);
     return data.getUint16(index * 2, Endian.little) ^ mask;
   }
 
-  void setUint16(int index, int value, int mask) {
+  void setUInt16(int index, int value, int mask) {
     assert(index >= 0);
     data.setUint16(index * 2, value ^ mask, Endian.little);
   }
@@ -1922,12 +1894,12 @@ final class StructBuilder extends CapnpBuilder<StructReader> {
     data.setInt32(index * 4, value ^ mask, Endian.little);
   }
 
-  int getUint32(int index, int mask) {
+  int getUInt32(int index, int mask) {
     assert(index >= 0);
     return data.getUint32(index * 4, Endian.little) ^ mask;
   }
 
-  void setUint32(int index, int value, int mask) {
+  void setUInt32(int index, int value, int mask) {
     assert(index >= 0);
     data.setUint32(index * 4, value ^ mask, Endian.little);
   }
@@ -1942,12 +1914,12 @@ final class StructBuilder extends CapnpBuilder<StructReader> {
     data.setInt64(index * 8, value ^ mask, Endian.little);
   }
 
-  int getUint64(int index, int mask) {
+  int getUInt64(int index, int mask) {
     assert(index >= 0);
     return data.getUint64(index * 8, Endian.little) ^ mask;
   }
 
-  void setUint64(int index, int value, int mask) {
+  void setUInt64(int index, int value, int mask) {
     assert(index >= 0);
     data.setUint64(index * 8, value ^ mask, Endian.little);
   }

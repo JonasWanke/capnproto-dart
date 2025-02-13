@@ -1,10 +1,8 @@
 // ignore_for_file: avoid_print, unreachable_from_main, camel_case_types
 
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:capnproto/capnproto.dart';
-import 'package:oxidized/oxidized.dart';
 
 Future<void> main(List<String> args) async {
   final readFile = File(args[0]);
@@ -13,7 +11,7 @@ Future<void> main(List<String> args) async {
   final bytes = await readFile.readAsBytes();
   final addressBook = readMessage(bytes.buffer.asByteData())
       .unwrap()
-      .getRoot(AddressBook_Reader.fromPointer)
+      .getRootAsStruct(AddressBook_Reader.new)
       .unwrap();
   print(addressBook);
 
@@ -55,15 +53,9 @@ Future<void> _writeAddressBookTo(File file) async {
 final class Person_Reader extends CapnpReader {
   const Person_Reader(this.reader);
 
-  static CapnpResult<Person_Reader> fromPointer(
-    PointerReader reader,
-    ByteData? defaultValue,
-  ) =>
-      reader.getStruct(defaultValue).map(Person_Reader.new);
-
   final StructReader reader;
 
-  int get id => reader.getUint32(0, 0);
+  int get id => reader.getUInt32(0, 0);
 
   bool get hasName => !reader.getPointerField(0).isNull;
   String get name => reader.getPointerField(0).getText(null).unwrap();
@@ -107,8 +99,8 @@ final class Person_Builder extends CapnpBuilder<Person_Reader> {
   @override
   Person_Reader get asReader => Person_Reader(builder.asReader);
 
-  int get id => builder.getUint32(0, 0);
-  set id(int value) => builder.setUint32(0, value, 0);
+  int get id => builder.getUInt32(0, 0);
+  set id(int value) => builder.setUInt32(0, value, 0);
 
   bool get hasName => !builder.getPointerField(0).isNull;
   String get name => builder.getPointerField(0).getText(null).unwrap();
@@ -149,19 +141,13 @@ final class Person_Builder extends CapnpBuilder<Person_Reader> {
 final class Person_PhoneNumber_Reader extends CapnpReader {
   const Person_PhoneNumber_Reader(this.reader);
 
-  static CapnpResult<Person_PhoneNumber_Reader> fromPointer(
-    PointerReader reader,
-    ByteData? defaultValue,
-  ) =>
-      reader.getStruct(defaultValue).map(Person_PhoneNumber_Reader.new);
-
   final StructReader reader;
 
   bool get hasNumber => !reader.getPointerField(0).isNull;
   String get number => reader.getPointerField(0).getText(null).unwrap();
 
   Person_PhoneNumber_Type get type =>
-      Person_PhoneNumber_Type.fromValue(reader.getUint16(0, 0));
+      Person_PhoneNumber_Type.fromValue(reader.getUInt16(0, 0));
 
   @override
   String toString() => '(number = $number, type = $type)';
@@ -192,10 +178,10 @@ final class Person_PhoneNumber_Builder
   set number(String value) => builder.getPointerField(0).setText(value);
 
   Person_PhoneNumber_Type get type =>
-      Person_PhoneNumber_Type.fromValue(builder.getUint16(0, 0));
+      Person_PhoneNumber_Type.fromValue(builder.getUInt16(0, 0));
   set type(Person_PhoneNumber_Type value) {
     assert(value != Person_PhoneNumber_Type.notInSchema);
-    builder.setUint16(0, value.value!, 0);
+    builder.setUInt16(0, value.value!, 0);
   }
 }
 
@@ -229,30 +215,22 @@ final class Person_Employment_Reader extends CapnpReader {
   final StructReader reader;
 
   bool get hasEmployer =>
-      reader.getUint16(2, 0) == 1 && !reader.getPointerField(3).isNull;
+      reader.getUInt16(2, 0) == 1 && !reader.getPointerField(3).isNull;
   bool get hasSchool =>
-      reader.getUint16(2, 0) == 2 && !reader.getPointerField(3).isNull;
+      reader.getUInt16(2, 0) == 2 && !reader.getPointerField(3).isNull;
 
-  Result<Person_Employment_Which_Reader, NotInSchemaError> get which {
-    return switch (reader.getUint16(2, 0)) {
-      0 => const Ok(Person_Employment_Which_Unemployed()),
-      1 => Ok(
-          Person_Employment_Which_Employer(
-            reader.getPointerField(3).getText(null).unwrap(),
-          ),
-        ),
-      2 => Ok(
-          Person_Employment_Which_School(
-            reader.getPointerField(3).getText(null).unwrap(),
-          ),
-        ),
-      3 => const Ok(Person_Employment_Which_SelfEmployed()),
-      final variant => Err(NotInSchemaError(variant)),
+  Person_Employment_Which_Reader get which {
+    return switch (reader.getUInt16(2, 0)) {
+      0 => const Person_Employment_Which_Unemployed_Reader(),
+      1 => Person_Employment_Which_Employer_Reader(reader),
+      2 => Person_Employment_Which_School_Reader(reader),
+      3 => const Person_Employment_Which_SelfEmployed_Reader(),
+      _ => const Person_Employment_Which_NotInSchema_Reader(),
     };
   }
 
   @override
-  String toString() => which.inner.toString();
+  String toString() => which.toString();
 }
 
 final class Person_Employment_Builder
@@ -275,78 +253,82 @@ final class Person_Employment_Builder
   Person_Employment_Reader get asReader =>
       Person_Employment_Reader(builder.asReader);
 
-  void setUnemployed() => builder.setUint16(2, 0, 0);
+  void setUnemployed() => builder.setUInt16(2, 0, 0);
 
   // `initFoo(int length)` for lists/data and `initFoo()` for structs
   // ignore: avoid_setters_without_getters
   set employer(String value) {
-    builder.setUint16(2, 1, 0);
+    builder.setUInt16(2, 1, 0);
     builder.getPointerField(3).setText(value);
   }
 
   // ignore: avoid_setters_without_getters
   set school(String value) {
-    builder.setUint16(2, 2, 0);
+    builder.setUInt16(2, 2, 0);
     builder.getPointerField(3).setText(value);
   }
 
-  void setSelfEmployed() => builder.setUint16(2, 3, 0);
+  void setSelfEmployed() => builder.setUInt16(2, 3, 0);
 
   // TODO(JonasWanke): figure out `which` getter with strings
 }
 
-typedef Person_Employment_Which_Reader
-    = Person_Employment_Which<String, String>;
-
-sealed class Person_Employment_Which<A0, A1> {
-  const Person_Employment_Which();
+sealed class Person_Employment_Which_Reader extends CapnpReader {
+  const Person_Employment_Which_Reader();
 }
 
-final class Person_Employment_Which_Unemployed
-    extends Person_Employment_Which<Never, Never> {
-  const Person_Employment_Which_Unemployed();
+final class Person_Employment_Which_Unemployed_Reader
+    extends Person_Employment_Which_Reader {
+  const Person_Employment_Which_Unemployed_Reader();
 
   @override
   String toString() => '(unemployed = void)';
 }
 
-final class Person_Employment_Which_Employer<A0>
-    extends Person_Employment_Which<A0, Never> {
-  const Person_Employment_Which_Employer(this.value);
+final class Person_Employment_Which_Employer_Reader
+    extends Person_Employment_Which_Reader {
+  const Person_Employment_Which_Employer_Reader(this.reader);
 
-  final A0 value;
+  final StructReader reader;
+
+  String get value => reader.getPointerField(3).getText(null).unwrap();
 
   @override
   String toString() => '(employer = $value)';
 }
 
-final class Person_Employment_Which_School<A1>
-    extends Person_Employment_Which<Never, A1> {
-  const Person_Employment_Which_School(this.value);
+final class Person_Employment_Which_School_Reader
+    extends Person_Employment_Which_Reader {
+  const Person_Employment_Which_School_Reader(this.reader);
 
-  final A1 value;
+  final StructReader reader;
+
+  String get value => reader.getPointerField(3).getText(null).unwrap();
 
   @override
   String toString() => '(school = $value)';
 }
 
-final class Person_Employment_Which_SelfEmployed
-    extends Person_Employment_Which<Never, Never> {
-  const Person_Employment_Which_SelfEmployed();
+final class Person_Employment_Which_SelfEmployed_Reader
+    extends Person_Employment_Which_Reader {
+  const Person_Employment_Which_SelfEmployed_Reader();
+
   @override
   String toString() => '(selfEmployed = void)';
+}
+
+final class Person_Employment_Which_NotInSchema_Reader
+    extends Person_Employment_Which_Reader {
+  const Person_Employment_Which_NotInSchema_Reader();
+
+  @override
+  String toString() => '<not in schema>';
 }
 
 // AddressBook
 
 final class AddressBook_Reader extends CapnpReader {
   const AddressBook_Reader(this.reader);
-
-  static CapnpResult<AddressBook_Reader> fromPointer(
-    PointerReader reader,
-    ByteData? defaultValue,
-  ) =>
-      reader.getStruct(defaultValue).map(AddressBook_Reader.new);
 
   final StructReader reader;
 
@@ -404,13 +386,4 @@ final class AddressBook_Builder extends CapnpBuilder<AddressBook_Reader> {
 
   @override
   String toString() => '(people = $people)';
-}
-
-extension<T extends Object> on Result<T, T> {
-  T get inner {
-    return match(
-      (value) => value,
-      (error) => error,
-    );
-  }
 }

@@ -82,6 +82,14 @@ class MessageReader {
     FromPointerReader<R> fromPointer,
   ) =>
       _getRootInternal().andThen((it) => it.getAs(fromPointer));
+  CapnpResult<R> getRootAsStruct<R extends CapnpReader>(
+    FromStructReader<R> fromReader,
+  ) {
+    return getRoot(
+      (reader, defaultValue) => reader.getStruct(defaultValue).map(fromReader),
+    );
+  }
+
   CapnpResult<AnyPointerReader> _getRootInternal() {
     return PointerReader.getRoot(
       _arena,

@@ -9,6 +9,9 @@ resolution: workspace
 
 dependencies:
   capnproto: ^0.2.0
+  collection: ^1.19.1
+  dart_style: ^2.3.8
+  path: ^1.9.1
 
 dev_dependencies:
   supernova_lints:
