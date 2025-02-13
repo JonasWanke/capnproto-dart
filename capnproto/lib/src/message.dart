@@ -154,6 +154,37 @@ class MessageBuilder {
   }
 }
 
+@immutable
+final class MessageSize {
+  const MessageSize({this.wordCount = 0, this.capabilityCount = 0})
+      : assert(wordCount >= 0),
+        assert(capabilityCount >= 0);
+
+  final int wordCount;
+  final int capabilityCount;
+
+  MessageSize operator +(MessageSize other) {
+    return MessageSize(
+      wordCount: wordCount + other.wordCount,
+      capabilityCount: capabilityCount + other.capabilityCount,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is MessageSize &&
+        other.wordCount == wordCount &&
+        other.capabilityCount == capabilityCount;
+  }
+
+  @override
+  int get hashCode => Object.hash(wordCount, capabilityCount);
+
+  @override
+  String toString() =>
+      'MessageSize(wordCount: $wordCount, capabilityCount: $capabilityCount)';
+}
+
 typedef FromPointerReader<R extends CapnpReader> = CapnpResult<R> Function(
   PointerReader reader,
   ByteData? defaultValue,

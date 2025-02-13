@@ -58,6 +58,14 @@ class MessageIsTooDeeplyNestedOrContainsCyclesCapnpError extends CapnpError {
   const MessageIsTooDeeplyNestedOrContainsCyclesCapnpError();
 }
 
+class MalformedDoubleFarPointerCapnpError extends CapnpError {
+  const MalformedDoubleFarPointerCapnpError();
+}
+
+class UnknownPointerTypeCapnpError extends CapnpError {
+  const UnknownPointerTypeCapnpError();
+}
+
 // Struct
 
 class MessageContainsNonStructPointerWhereStructPointerWasExpectedCapnpError

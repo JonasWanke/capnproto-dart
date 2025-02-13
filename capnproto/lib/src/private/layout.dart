@@ -7,6 +7,7 @@ import 'package:oxidized/oxidized.dart';
 
 import '../constants.dart';
 import '../error.dart';
+import '../message.dart';
 import '../reader_builder.dart';
 import '../serialize.dart';
 import '../utils.dart';
@@ -118,6 +119,8 @@ final class WirePointer {
   /// Matches [WirePointerKind.struct] and [WirePointerKind.list], but not
   /// [WirePointerKind.far] and [WirePointerKind.other].
   bool get isPositional => _offsetAndKind & 2 == 0;
+
+  bool get isCapability => _offsetAndKind == WirePointerKind.other.index;
 
   ByteData get target => data.offsetBytes(_offset);
 
@@ -318,6 +321,199 @@ final class PointerReader extends CapnpReader {
   bool get isNull => pointer.isNull;
 
   final int nestingLimit;
+
+  /// Gets the total size of the target and all of its children.
+  ///
+  /// Does not count far pointer overhead.
+  CapnpResult<MessageSize> totalSize() {
+    if (isNull) return const Ok(MessageSize());
+
+    if (nestingLimit <= 0) {
+      return const Err(MessageIsTooDeeplyNestedOrContainsCyclesCapnpError());
+    }
+
+    var result = const MessageSize();
+
+    final SegmentId segmentId;
+    final WirePointer ref;
+    final ByteData data;
+    switch (_followFars(arena, this.segmentId, pointer)) {
+      case Ok(value: (final newRef, final newSegmentId, final newData)):
+        segmentId = newSegmentId;
+        ref = newRef;
+        data = newData;
+      case Err(:final error):
+        return Err(error);
+    }
+
+    switch (ref.kind) {
+      case WirePointerKind.struct:
+        final structSize = ref.structSize;
+
+        final ByteData pointerSection;
+        final segment = arena.getSegment(segmentId).unwrap();
+        switch (arena.getInterval(
+          segmentId,
+          data.offsetInBytes -
+              segment.offsetInBytes +
+              structSize.dataWords * CapnpConstants.bytesPerWord,
+          structSize.pointerCount * CapnpConstants.wordsPerPointer,
+        )) {
+          case Ok(:final value):
+            pointerSection = value;
+          case Err(:final error):
+            return Err(error);
+        }
+        result += MessageSize(wordCount: ref.structWordSize);
+
+        for (var i = 0; i < structSize.pointerCount; i++) {
+          final pointer = PointerReader._(
+            arena,
+            segmentId,
+            WirePointer.fromOffset(
+              pointerSection,
+              i * CapnpConstants.wordsPerPointer,
+            ),
+            nestingLimit: nestingLimit - 1,
+          );
+          switch (pointer.totalSize()) {
+            case Ok(:final value):
+              result += value;
+            case Err(:final error):
+              return Err(error);
+          }
+        }
+
+      case WirePointerKind.list:
+        switch (ref.listElementSize) {
+          case ElementSize.void_:
+            break;
+          case ElementSize.bit ||
+                ElementSize.byte ||
+                ElementSize.twoBytes ||
+                ElementSize.fourBytes ||
+                ElementSize.eightBytes:
+            final totalWords = _roundBitsUpToWords(
+              ref.listElementCount * ref.listElementSize.dataBitsPerElement,
+            );
+
+            final segment = arena.getSegment(segmentId).unwrap();
+            if (arena.getInterval(
+              segmentId,
+              data.offsetInBytes - segment.offsetInBytes,
+              totalWords,
+            )
+                case Err(:final error)) {
+              return Err(error);
+            }
+
+            result += MessageSize(wordCount: totalWords);
+
+          case ElementSize.pointer:
+            final count = ref.listElementCount;
+
+            final segment = arena.getSegment(segmentId).unwrap();
+            if (arena.getInterval(
+              segmentId,
+              data.offsetInBytes - segment.offsetInBytes,
+              count * CapnpConstants.wordsPerPointer,
+            )
+                case Err(:final error)) {
+              return Err(error);
+            }
+
+            result +=
+                MessageSize(wordCount: count * CapnpConstants.wordsPerPointer);
+
+            for (var i = 0; i < count; i++) {
+              final pointer = PointerReader._(
+                arena,
+                segmentId,
+                WirePointer.fromOffset(data, i),
+                nestingLimit: nestingLimit - 1,
+              );
+              switch (pointer.totalSize()) {
+                case Ok(:final value):
+                  result += value;
+                case Err(:final error):
+                  return Err(error);
+              }
+            }
+
+          case ElementSize.inlineComposite:
+            final wordCount = ref.listInlineCompositeWordCount;
+
+            final segment = arena.getSegment(segmentId).unwrap();
+            if (arena.getInterval(
+              segmentId,
+              data.offsetInBytes - segment.offsetInBytes,
+              CapnpConstants.wordsPerPointer + wordCount,
+            )
+                case Err(:final error)) {
+              return Err(error);
+            }
+
+            final elementTag = WirePointer.fromOffset(data, 0);
+            final count = elementTag.inlineCompositeListElementCount;
+
+            if (elementTag.kind != WirePointerKind.struct) {
+              return const Err(
+                InlineCompositeListsOfNonStructTypeAreNotSupportedCapnpError(),
+              );
+            }
+
+            final actualSize = elementTag.structWordSize * count;
+            if (actualSize > wordCount) {
+              return const Err(
+                InlineCompositeListsElementsOverrunItsWordCountCapnpError(),
+              );
+            }
+
+            // Count the actual size rather than the claimed word count because
+            // that's what we end up with if we make a copy.
+            result += MessageSize(
+              wordCount: CapnpConstants.wordsPerPointer + actualSize,
+            );
+
+            final structSize = elementTag.structSize;
+
+            if (structSize.pointerCount > 0) {
+              for (var i = 0; i < count; i++) {
+                for (var j = 0; j < structSize.pointerCount; j++) {
+                  final pointer = PointerReader._(
+                    arena,
+                    segmentId,
+                    WirePointer.fromOffset(
+                      data,
+                      CapnpConstants.wordsPerPointer +
+                          i * structSize.totalWords +
+                          structSize.dataWords +
+                          j * CapnpConstants.wordsPerPointer,
+                    ),
+                    nestingLimit: nestingLimit - 1,
+                  );
+                  switch (pointer.totalSize()) {
+                    case Ok(:final value):
+                      result += value;
+                    case Err(:final error):
+                      return Err(error);
+                  }
+                }
+              }
+            }
+        }
+
+      case WirePointerKind.far:
+        return const Err(MalformedDoubleFarPointerCapnpError());
+      case WirePointerKind.other:
+        if (ref.isCapability) {
+          result += const MessageSize(capabilityCount: 1);
+        } else {
+          return const Err(UnknownPointerTypeCapnpError());
+        }
+    }
+    return Ok(result);
+  }
 
   CapnpResult<StructReader> getStruct(ByteData? defaultValue) {
     assert(
