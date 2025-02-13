@@ -27,21 +27,21 @@ Future<void> _writeAddressBookTo(File file) async {
 
   final alice = people[0];
   alice.id = 123;
-  alice.setName('Alice');
-  alice.setEmail('alice@example.com');
+  alice.name = 'Alice';
+  alice.email = 'alice@example.com';
   final alicePhones = alice.initPhones(1);
-  alicePhones[0].setNumber('555-1212');
+  alicePhones[0].number = '555-1212';
   alicePhones[0].type = Person_PhoneNumber_Type.mobile;
   alice.employment.school = 'MIT';
 
   final bob = people[1];
   bob.id = 456;
-  bob.setName('Bob');
-  bob.setEmail('bob@example.com');
+  bob.name = 'Bob';
+  bob.email = 'bob@example.com';
   final bobPhones = bob.initPhones(2);
-  bobPhones[0].setNumber('555-4567');
+  bobPhones[0].number = '555-4567';
   bobPhones[0].type = Person_PhoneNumber_Type.home;
-  bobPhones[1].setNumber('555-7654');
+  bobPhones[1].number = '555-7654';
   bobPhones[1].type = Person_PhoneNumber_Type.work;
   bob.employment.setUnemployed();
 
@@ -66,26 +66,26 @@ final class Person_Reader extends CapnpReader {
   int get id => reader.getUint32(0, 0);
 
   bool get hasName => !reader.getPointerField(0).isNull;
-  CapnpResult<String> get name => reader.getPointerField(0).getText(null);
+  String get name => reader.getPointerField(0).getText(null).unwrap();
 
   bool get hasEmail => !reader.getPointerField(1).isNull;
-  CapnpResult<String> get email => reader.getPointerField(1).getText(null);
+  String get email => reader.getPointerField(1).getText(null).unwrap();
 
   bool get hasPhones => !reader.getPointerField(2).isNull;
-  CapnpResult<StructListReader<Person_PhoneNumber_Reader>> get phones {
+  StructListReader<Person_PhoneNumber_Reader> get phones {
     return StructListReader.fromPointer(
       reader.getPointerField(2),
       Person_PhoneNumber_Reader.new,
       null,
-    );
+    ).unwrap();
   }
 
   Person_Employment_Reader get employment => Person_Employment_Reader(reader);
 
   @override
   String toString() {
-    return '(id = $id, name = ${name.inner}, email = ${email.inner}, '
-        'phones = ${phones.inner}, employment = $employment)';
+    return '(id = $id, name = $name, email = $email, phones = $phones, '
+        'employment = $employment)';
   }
 }
 
@@ -110,20 +110,23 @@ final class Person_Builder extends CapnpBuilder<Person_Reader> {
   int get id => builder.getUint32(0, 0);
   set id(int value) => builder.setUint32(0, value, 0);
 
-  void setName(String value) => builder.getPointerField(0).setText(value);
+  bool get hasName => !builder.getPointerField(0).isNull;
+  String get name => builder.getPointerField(0).getText(null).unwrap();
+  set name(String value) => builder.getPointerField(0).setText(value);
 
-  void setEmail(String value) => builder.getPointerField(1).setText(value);
+  bool get hasEmail => !builder.getPointerField(1).isNull;
+  String get email => builder.getPointerField(1).getText(null).unwrap();
+  set email(String value) => builder.getPointerField(1).setText(value);
 
-  CapnpResult<
-      StructListBuilder<Person_PhoneNumber_Builder,
-          Person_PhoneNumber_Reader>> get phones {
+  StructListBuilder<Person_PhoneNumber_Builder, Person_PhoneNumber_Reader>
+      get phones {
     return StructListBuilder.getFromPointer(
       builder.getPointerField(2),
       Person_PhoneNumber_Builder.structSize,
       Person_PhoneNumber_Builder.new,
       Person_PhoneNumber_Reader.new,
       null,
-    );
+    ).unwrap();
   }
 
   StructListBuilder<Person_PhoneNumber_Builder, Person_PhoneNumber_Reader>
@@ -155,13 +158,13 @@ final class Person_PhoneNumber_Reader extends CapnpReader {
   final StructReader reader;
 
   bool get hasNumber => !reader.getPointerField(0).isNull;
-  CapnpResult<String> get number => reader.getPointerField(0).getText(null);
+  String get number => reader.getPointerField(0).getText(null).unwrap();
 
   Person_PhoneNumber_Type get type =>
       Person_PhoneNumber_Type.fromValue(reader.getUint16(0, 0));
 
   @override
-  String toString() => '(number = ${number.inner}, type = $type)';
+  String toString() => '(number = $number, type = $type)';
 }
 
 final class Person_PhoneNumber_Builder
@@ -184,7 +187,9 @@ final class Person_PhoneNumber_Builder
   Person_PhoneNumber_Reader get asReader =>
       Person_PhoneNumber_Reader(builder.asReader);
 
-  void setNumber(String value) => builder.getPointerField(0).setText(value);
+  bool get hasNumber => !builder.getPointerField(0).isNull;
+  String get number => builder.getPointerField(0).getText(null).unwrap();
+  set number(String value) => builder.getPointerField(0).setText(value);
 
   Person_PhoneNumber_Type get type =>
       Person_PhoneNumber_Type.fromValue(builder.getUint16(0, 0));
@@ -233,12 +238,12 @@ final class Person_Employment_Reader extends CapnpReader {
       0 => const Ok(Person_Employment_Which_Unemployed()),
       1 => Ok(
           Person_Employment_Which_Employer(
-            reader.getPointerField(3).getText(null),
+            reader.getPointerField(3).getText(null).unwrap(),
           ),
         ),
       2 => Ok(
           Person_Employment_Which_School(
-            reader.getPointerField(3).getText(null),
+            reader.getPointerField(3).getText(null).unwrap(),
           ),
         ),
       3 => const Ok(Person_Employment_Which_SelfEmployed()),
@@ -291,7 +296,7 @@ final class Person_Employment_Builder
 }
 
 typedef Person_Employment_Which_Reader
-    = Person_Employment_Which<CapnpResult<String>, CapnpResult<String>>;
+    = Person_Employment_Which<String, String>;
 
 sealed class Person_Employment_Which<A0, A1> {
   const Person_Employment_Which();
@@ -346,16 +351,16 @@ final class AddressBook_Reader extends CapnpReader {
   final StructReader reader;
 
   bool get hasPeople => !reader.getPointerField(0).isNull;
-  CapnpResult<StructListReader<Person_Reader>> get people {
+  StructListReader<Person_Reader> get people {
     return StructListReader.fromPointer(
       reader.getPointerField(0),
       Person_Reader.new,
       null,
-    );
+    ).unwrap();
   }
 
   @override
-  String toString() => '(people = ${people.inner})';
+  String toString() => '(people = $people)';
 }
 
 final class AddressBook_Builder extends CapnpBuilder<AddressBook_Reader> {
@@ -377,14 +382,14 @@ final class AddressBook_Builder extends CapnpBuilder<AddressBook_Reader> {
   AddressBook_Reader get asReader => AddressBook_Reader(builder.asReader);
 
   bool get hasPeople => !builder.getPointerField(0).isNull;
-  CapnpResult<StructListBuilder<Person_Builder, Person_Reader>> get people {
+  StructListBuilder<Person_Builder, Person_Reader> get people {
     return StructListBuilder.getFromPointer(
       builder.getPointerField(0),
       Person_Builder.structSize,
       Person_Builder.new,
       Person_Reader.new,
       null,
-    );
+    ).unwrap();
   }
 
   StructListBuilder<Person_Builder, Person_Reader> initPeople(int length) {
@@ -398,7 +403,7 @@ final class AddressBook_Builder extends CapnpBuilder<AddressBook_Reader> {
   }
 
   @override
-  String toString() => '(people = ${people.inner})';
+  String toString() => '(people = $people)';
 }
 
 extension<T extends Object> on Result<T, T> {

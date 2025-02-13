@@ -1172,6 +1172,20 @@ final class PointerBuilder extends CapnpBuilder<PointerReader> {
     }
   }
 
+  /// Read a text value from the pointer.
+  ///
+  /// The optional [allowMalformed] argument defines how to deal with invalid or
+  /// unterminated character sequences.
+  ///
+  /// If it is `true`, replace invalid (or unterminated) character sequences
+  /// with the Unicode Replacement character `U+FFFD` (�). Otherwise, return
+  /// and [Err] containing a [MessageContainsTextWithInvalidUtf8CapnpError].
+  CapnpResult<String> getText(
+    ByteData? defaultValue, {
+    bool allowMalformed = false,
+  }) =>
+      asReader.getText(defaultValue, allowMalformed: allowMalformed);
+
   void setText(String value) {
     final bytes = const Utf8Encoder().convert(value);
     final (_, data) = _initTextPointer(bytes.length);
