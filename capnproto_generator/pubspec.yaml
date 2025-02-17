@@ -11,6 +11,8 @@ dependencies:
   capnproto: ^0.2.0
   collection: ^1.19.1
   dart_style: ^2.3.8
+  meta: ^1.16.0
+  oxidized: ^6.2.0
   path: ^1.9.1
 
 dev_dependencies:

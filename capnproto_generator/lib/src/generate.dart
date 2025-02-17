@@ -4,6 +4,7 @@ import 'package:collection/collection.dart';
 import 'package:dart_style/dart_style.dart';
 import 'package:path/path.dart' as path;
 
+import 'constants.dart';
 import 'imports.dart';
 import 'schema.dart';
 
@@ -163,7 +164,8 @@ class GeneratorContext {
 }
 
 class FileGenerator {
-  FileGenerator._(this.context);
+  FileGenerator._(this.context, Uri currentFile)
+      : _imports = Imports(currentFile);
 
   static Future<void> generate(
     GeneratorContext context,
@@ -174,7 +176,10 @@ class FileGenerator {
     );
     await dartFile.parent.create(recursive: true);
 
-    final generator = FileGenerator._(context);
+    final generator = FileGenerator._(
+      context,
+      context.nodeImportsAndNames[file.id]!.importUri,
+    );
     generator._generateNode(file.id);
 
     final output = StringBuffer();
@@ -190,6 +195,7 @@ class FileGenerator {
 
     final codeBuffer = StringBuffer();
     generator._imports.addImportsToBuffer(codeBuffer);
+    codeBuffer.writeln();
     codeBuffer.writeln(generator._buffer);
     final formatted = DartFormatter().format(codeBuffer.toString());
     output.write(formatted);
@@ -199,7 +205,7 @@ class FileGenerator {
 
   final GeneratorContext context;
 
-  final _imports = Imports();
+  final Imports _imports;
   final _buffer = StringBuffer();
 
   void _generateNode(int nodeId) {
@@ -219,12 +225,9 @@ class FileGenerator {
 
         _buffer.writeln('// ignore: camel_case_types');
         _buffer.writeln(
-          'final class ${name}_Reader extends ${_imports.capnpReader} {',
+          'final class ${name}_Reader extends ${_imports.capnpStructReader} {',
         );
-        _buffer.writeln('const ${name}_Reader(this.reader);');
-        _buffer.writeln();
-
-        _buffer.writeln('final ${_imports.structReader} reader;');
+        _buffer.writeln('const ${name}_Reader(super.reader);');
         _buffer.writeln();
 
         for (final field in struct.fields) {
@@ -286,7 +289,7 @@ class FileGenerator {
         void generateHas() {
           _buffer.writeln(
             '${_imports.bool} get has${name.uppercaseFirst()} => '
-            '!reader.getPointerField(${slot.offset}).isNull;',
+            '!reader.getPointer(${slot.offset}).isNull;',
           );
         }
 
@@ -353,7 +356,7 @@ class FileGenerator {
             );
           case (
               Type_Which_Uint32_Reader(),
-              Value_Which_Uint32_Reader(:final value)
+              Value_Which_Uint32_Reader(:final value),
             ):
             _buffer.writeln(
               '${_imports.int} get $name => '
@@ -361,7 +364,7 @@ class FileGenerator {
             );
           case (
               Type_Which_Uint64_Reader(),
-              Value_Which_Uint64_Reader(:final value)
+              Value_Which_Uint64_Reader(:final value),
             ):
             _buffer.writeln(
               '${_imports.int} get $name => '
@@ -370,26 +373,26 @@ class FileGenerator {
 
           case (
               Type_Which_Float32_Reader(),
-              Value_Which_Float32_Reader(reader: final valueReader)
+              Value_Which_Float32_Reader(reader: final valueReader),
             ):
             _buffer.writeln(
               '${_imports.double} get $name => '
-              'reader.getFloat32(${slot.offset}, '
-              '${valueReader.getUInt32(1, 0)});',
+              // ignore: lines_longer_than_80_chars
+              'reader.getFloat32(${slot.offset}, ${valueReader.getUInt32(1, 0)});',
             );
           case (
               Type_Which_Float64_Reader(),
-              Value_Which_Float64_Reader(reader: final valueReader)
+              Value_Which_Float64_Reader(reader: final valueReader),
             ):
             _buffer.writeln(
               '${_imports.double} get $name => '
-              'reader.getFloat64(${slot.offset}, '
-              '${valueReader.getUInt64(1, 0)});',
+              // ignore: lines_longer_than_80_chars
+              'reader.getFloat64(${slot.offset}, ${valueReader.getUInt64(1, 0)});',
             );
 
           case (
               Type_Which_Text_Reader(),
-              Value_Which_Text_Reader(:final value)
+              Value_Which_Text_Reader(:final value),
             ):
             if (value != '') {
               throw UnimplementedError('Support default values for Text');
@@ -397,7 +400,7 @@ class FileGenerator {
             generateHas();
             _buffer.writeln(
               '${_imports.string} get $name => '
-              'reader.getPointerField(${slot.offset}).getText(null).unwrap();',
+              'reader.getPointer(${slot.offset}).getText(null).unwrap();',
             );
           case (
               Type_Which_Data_Reader(),
@@ -409,7 +412,7 @@ class FileGenerator {
             generateHas();
             _buffer.writeln(
               '${_imports.byteData} get $name => '
-              'reader.getPointerField(${slot.offset}).getData(null).unwrap();',
+              'reader.getPointer(${slot.offset}).getData(null).unwrap();',
             );
 
           case (

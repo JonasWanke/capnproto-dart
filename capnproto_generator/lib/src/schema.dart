@@ -6,8 +6,8 @@ import 'package:capnproto/capnproto.dart';
 
 // Node
 
-final class Node_Reader extends CapnpReader {
-  const Node_Reader(this.reader);
+final class Node_Reader extends CapnpStructReader {
+  const Node_Reader(super.reader);
 
   static CapnpResult<Node_Reader> fromPointer(
     PointerReader reader,
@@ -15,21 +15,19 @@ final class Node_Reader extends CapnpReader {
   ) =>
       reader.getStruct(defaultValue).map(Node_Reader.new);
 
-  final StructReader reader;
-
   int get id => reader.getUInt64(0, 0);
 
-  bool get hasDisplayName => !reader.getPointerField(0).isNull;
-  String get displayName => reader.getPointerField(0).getText(null).unwrap();
+  bool get hasDisplayName => !reader.getPointer(0).isNull;
+  String get displayName => reader.getPointer(0).getText(null).unwrap();
 
   int get displayNamePrefixLength => reader.getUInt32(2, 0);
 
   int get scopeId => reader.getUInt64(2, 0);
 
-  bool get hasParameters => !reader.getPointerField(5).isNull;
+  bool get hasParameters => !reader.getPointer(5).isNull;
   StructListReader<Node_Parameter_Reader> get parameters {
     return StructListReader.fromPointer(
-      reader.getPointerField(5),
+      reader.getPointer(5),
       Node_Parameter_Reader.new,
       null,
     ).unwrap();
@@ -37,19 +35,19 @@ final class Node_Reader extends CapnpReader {
 
   bool get isGeneric => reader.getBool(288, false);
 
-  bool get hasNestedNodes => !reader.getPointerField(1).isNull;
+  bool get hasNestedNodes => !reader.getPointer(1).isNull;
   StructListReader<Node_NestedNode_Reader> get nestedNodes {
     return StructListReader.fromPointer(
-      reader.getPointerField(1),
+      reader.getPointer(1),
       Node_NestedNode_Reader.new,
       null,
     ).unwrap();
   }
 
-  bool get hasAnnotations => !reader.getPointerField(2).isNull;
+  bool get hasAnnotations => !reader.getPointer(2).isNull;
   StructListReader<Annotation_Reader> get annotations {
     return StructListReader.fromPointer(
-      reader.getPointerField(2),
+      reader.getPointer(2),
       Annotation_Reader.new,
       null,
     ).unwrap();
@@ -57,13 +55,13 @@ final class Node_Reader extends CapnpReader {
 
   Node_Which_Reader get which {
     return switch (reader.getUInt16(6, 0)) {
-      0 => const Node_Which_File_Reader(),
+      0 => Node_Which_File_Reader(reader),
       1 => Node_Which_Struct_Reader(reader),
       2 => Node_Which_Enum_Reader(reader),
       3 => Node_Which_Interface_Reader(reader),
       4 => Node_Which_Const_Reader(reader),
       5 => Node_Which_Annotation_Reader(reader),
-      _ => const Node_Which_NotInSchema_Reader(),
+      _ => Node_Which_NotInSchema_Reader(reader),
     };
   }
 
@@ -75,21 +73,19 @@ final class Node_Reader extends CapnpReader {
   }
 }
 
-sealed class Node_Which_Reader extends CapnpReader {
-  const Node_Which_Reader();
+sealed class Node_Which_Reader extends CapnpStructReader {
+  const Node_Which_Reader(super.reader);
 }
 
 final class Node_Which_File_Reader extends Node_Which_Reader {
-  const Node_Which_File_Reader();
+  const Node_Which_File_Reader(super.reader);
 
   @override
   String toString() => '(file = ())';
 }
 
 final class Node_Which_Struct_Reader extends Node_Which_Reader {
-  const Node_Which_Struct_Reader(this.reader);
-
-  final StructReader reader;
+  const Node_Which_Struct_Reader(super.reader);
 
   int get dataWordCount => reader.getUInt16(7, 0);
 
@@ -104,10 +100,10 @@ final class Node_Which_Struct_Reader extends Node_Which_Reader {
 
   int get discriminantOffset => reader.getUInt16(8, 0);
 
-  bool get hasFields => !reader.getPointerField(3).isNull;
+  bool get hasFields => !reader.getPointer(3).isNull;
   StructListReader<Field_Reader> get fields {
     return StructListReader.fromPointer(
-      reader.getPointerField(3),
+      reader.getPointer(3),
       Field_Reader.new,
       null,
     ).unwrap();
@@ -125,14 +121,12 @@ final class Node_Which_Struct_Reader extends Node_Which_Reader {
 }
 
 final class Node_Which_Enum_Reader extends Node_Which_Reader {
-  const Node_Which_Enum_Reader(this.reader);
+  const Node_Which_Enum_Reader(super.reader);
 
-  final StructReader reader;
-
-  bool get hasEnumerants => !reader.getPointerField(3).isNull;
+  bool get hasEnumerants => !reader.getPointer(3).isNull;
   StructListReader<Enumerant_Reader> get enumerants {
     return StructListReader.fromPointer(
-      reader.getPointerField(3),
+      reader.getPointer(3),
       Enumerant_Reader.new,
       null,
     ).unwrap();
@@ -143,9 +137,7 @@ final class Node_Which_Enum_Reader extends Node_Which_Reader {
 }
 
 final class Node_Which_Interface_Reader extends Node_Which_Reader {
-  const Node_Which_Interface_Reader(this.reader);
-
-  final StructReader reader;
+  const Node_Which_Interface_Reader(super.reader);
 
   // TODO(JonasWanke): methods, superclasses
 
@@ -154,29 +146,25 @@ final class Node_Which_Interface_Reader extends Node_Which_Reader {
 }
 
 final class Node_Which_Const_Reader extends Node_Which_Reader {
-  const Node_Which_Const_Reader(this.reader);
+  const Node_Which_Const_Reader(super.reader);
 
-  final StructReader reader;
-
-  bool get hasType => !reader.getPointerField(3).isNull;
+  bool get hasType => !reader.getPointer(3).isNull;
   Type_Reader get type =>
-      Type_Reader(reader.getPointerField(3).getStruct(null).unwrap());
+      Type_Reader(reader.getPointer(3).getStruct(null).unwrap());
 
   Value_Reader get value =>
-      Value_Reader(reader.getPointerField(4).getStruct(null).unwrap());
+      Value_Reader(reader.getPointer(4).getStruct(null).unwrap());
 
   @override
   String toString() => '(const = (type = $type, value = $value))';
 }
 
 final class Node_Which_Annotation_Reader extends Node_Which_Reader {
-  const Node_Which_Annotation_Reader(this.reader);
+  const Node_Which_Annotation_Reader(super.reader);
 
-  final StructReader reader;
-
-  bool get hasType => !reader.getPointerField(3).isNull;
+  bool get hasType => !reader.getPointer(3).isNull;
   Type_Reader get type =>
-      Type_Reader(reader.getPointerField(3).getStruct(null).unwrap());
+      Type_Reader(reader.getPointer(3).getStruct(null).unwrap());
 
   bool get targetsFile => reader.getBool(112, false);
 
@@ -215,7 +203,7 @@ final class Node_Which_Annotation_Reader extends Node_Which_Reader {
 }
 
 final class Node_Which_NotInSchema_Reader extends Node_Which_Reader {
-  const Node_Which_NotInSchema_Reader();
+  const Node_Which_NotInSchema_Reader(super.reader);
 
   @override
   String toString() => '<not in schema>';
@@ -223,8 +211,8 @@ final class Node_Which_NotInSchema_Reader extends Node_Which_Reader {
 
 // Node.Parameter
 
-final class Node_Parameter_Reader extends CapnpReader {
-  const Node_Parameter_Reader(this.reader);
+final class Node_Parameter_Reader extends CapnpStructReader {
+  const Node_Parameter_Reader(super.reader);
 
   static CapnpResult<Node_Parameter_Reader> fromPointer(
     PointerReader reader,
@@ -232,17 +220,15 @@ final class Node_Parameter_Reader extends CapnpReader {
   ) =>
       reader.getStruct(defaultValue).map(Node_Parameter_Reader.new);
 
-  final StructReader reader;
-
-  bool get hasName => !reader.getPointerField(0).isNull;
-  String get name => reader.getPointerField(0).getText(null).unwrap();
+  bool get hasName => !reader.getPointer(0).isNull;
+  String get name => reader.getPointer(0).getText(null).unwrap();
 
   @override
   String toString() => '(name = $name)';
 }
 
-final class Node_NestedNode_Reader extends CapnpReader {
-  const Node_NestedNode_Reader(this.reader);
+final class Node_NestedNode_Reader extends CapnpStructReader {
+  const Node_NestedNode_Reader(super.reader);
 
   static CapnpResult<Node_NestedNode_Reader> fromPointer(
     PointerReader reader,
@@ -250,10 +236,8 @@ final class Node_NestedNode_Reader extends CapnpReader {
   ) =>
       reader.getStruct(defaultValue).map(Node_NestedNode_Reader.new);
 
-  final StructReader reader;
-
-  bool get hasName => !reader.getPointerField(0).isNull;
-  String get name => reader.getPointerField(0).getText(null).unwrap();
+  bool get hasName => !reader.getPointer(0).isNull;
+  String get name => reader.getPointer(0).getText(null).unwrap();
 
   int get id => reader.getUInt64(0, 0);
 
@@ -263,8 +247,8 @@ final class Node_NestedNode_Reader extends CapnpReader {
 
 // Node.SourceInfo
 
-final class Node_SourceInfo_Reader extends CapnpReader {
-  const Node_SourceInfo_Reader(this.reader);
+final class Node_SourceInfo_Reader extends CapnpStructReader {
+  const Node_SourceInfo_Reader(super.reader);
 
   static CapnpResult<Node_SourceInfo_Reader> fromPointer(
     PointerReader reader,
@@ -272,17 +256,15 @@ final class Node_SourceInfo_Reader extends CapnpReader {
   ) =>
       reader.getStruct(defaultValue).map(Node_SourceInfo_Reader.new);
 
-  final StructReader reader;
-
   int get id => reader.getUInt64(0, 0);
 
-  bool get hasDocComment => !reader.getPointerField(0).isNull;
-  String get docComment => reader.getPointerField(0).getText(null).unwrap();
+  bool get hasDocComment => !reader.getPointer(0).isNull;
+  String get docComment => reader.getPointer(0).getText(null).unwrap();
 
-  bool get hasMembers => !reader.getPointerField(1).isNull;
+  bool get hasMembers => !reader.getPointer(1).isNull;
   StructListReader<Node_SourceInfo_Member_Reader> get members {
     return StructListReader.fromPointer(
-      reader.getPointerField(1),
+      reader.getPointer(1),
       Node_SourceInfo_Member_Reader.new,
       null,
     ).unwrap();
@@ -295,8 +277,8 @@ final class Node_SourceInfo_Reader extends CapnpReader {
 
 // Node.SourceInfo.Member
 
-final class Node_SourceInfo_Member_Reader extends CapnpReader {
-  const Node_SourceInfo_Member_Reader(this.reader);
+final class Node_SourceInfo_Member_Reader extends CapnpStructReader {
+  const Node_SourceInfo_Member_Reader(super.reader);
 
   static CapnpResult<Node_SourceInfo_Member_Reader> fromPointer(
     PointerReader reader,
@@ -304,10 +286,8 @@ final class Node_SourceInfo_Member_Reader extends CapnpReader {
   ) =>
       reader.getStruct(defaultValue).map(Node_SourceInfo_Member_Reader.new);
 
-  final StructReader reader;
-
-  bool get hasDocComment => !reader.getPointerField(0).isNull;
-  String get docComment => reader.getPointerField(0).getText(null).unwrap();
+  bool get hasDocComment => !reader.getPointer(0).isNull;
+  String get docComment => reader.getPointer(0).getText(null).unwrap();
 
   @override
   String toString() => '(docComment = $docComment)';
@@ -315,8 +295,8 @@ final class Node_SourceInfo_Member_Reader extends CapnpReader {
 
 // Field
 
-final class Field_Reader extends CapnpReader {
-  const Field_Reader(this.reader);
+final class Field_Reader extends CapnpStructReader {
+  const Field_Reader(super.reader);
 
   static CapnpResult<Field_Reader> fromPointer(
     PointerReader reader,
@@ -324,17 +304,15 @@ final class Field_Reader extends CapnpReader {
   ) =>
       reader.getStruct(defaultValue).map(Field_Reader.new);
 
-  final StructReader reader;
-
-  bool get hasName => !reader.getPointerField(0).isNull;
-  String get name => reader.getPointerField(0).getText(null).unwrap();
+  bool get hasName => !reader.getPointer(0).isNull;
+  String get name => reader.getPointer(0).getText(null).unwrap();
 
   int get codeOrder => reader.getUInt16(0, 0);
 
-  bool get hasAnnotations => !reader.getPointerField(1).isNull;
+  bool get hasAnnotations => !reader.getPointer(1).isNull;
   StructListReader<Annotation_Reader> get annotations {
     return StructListReader.fromPointer(
-      reader.getPointerField(1),
+      reader.getPointer(1),
       Annotation_Reader.new,
       null,
     ).unwrap();
@@ -346,15 +324,15 @@ final class Field_Reader extends CapnpReader {
     return switch (reader.getUInt16(4, 0)) {
       0 => Field_Which_Slot_Reader(reader),
       1 => Field_Which_Group_Reader(reader),
-      _ => const Field_Which_NotInSchema_Reader(),
+      _ => Field_Which_NotInSchema_Reader(reader),
     };
   }
 
   Field_Ordinal_Which_Reader get ordinal {
     return switch (reader.getUInt16(5, 0)) {
-      0 => const Field_Ordinal_Which_Implicit_Reader(),
+      0 => Field_Ordinal_Which_Implicit_Reader(reader),
       1 => Field_Ordinal_Which_Explicit_Reader(reader),
-      _ => const Field_Ordinal_Which_NotInSchema_Reader(),
+      _ => Field_Ordinal_Which_NotInSchema_Reader(reader),
     };
   }
 
@@ -368,23 +346,21 @@ final class Field_Reader extends CapnpReader {
   }
 }
 
-sealed class Field_Which_Reader extends CapnpReader {
-  const Field_Which_Reader();
+sealed class Field_Which_Reader extends CapnpStructReader {
+  const Field_Which_Reader(super.reader);
 }
 
 final class Field_Which_Slot_Reader extends Field_Which_Reader {
-  const Field_Which_Slot_Reader(this.reader);
-
-  final StructReader reader;
+  const Field_Which_Slot_Reader(super.reader);
 
   int get offset => reader.getUInt32(1, 0);
 
-  bool get hasType => !reader.getPointerField(2).isNull;
+  bool get hasType => !reader.getPointer(2).isNull;
   Type_Reader get type =>
-      Type_Reader(reader.getPointerField(2).getStruct(null).unwrap());
+      Type_Reader(reader.getPointer(2).getStruct(null).unwrap());
 
   Value_Reader get defaultValue =>
-      Value_Reader(reader.getPointerField(3).getStruct(null).unwrap());
+      Value_Reader(reader.getPointer(3).getStruct(null).unwrap());
 
   bool get hadExplicitDefault => reader.getBool(128, false);
 
@@ -397,9 +373,7 @@ final class Field_Which_Slot_Reader extends Field_Which_Reader {
 }
 
 final class Field_Which_Group_Reader extends Field_Which_Reader {
-  const Field_Which_Group_Reader(this.reader);
-
-  final StructReader reader;
+  const Field_Which_Group_Reader(super.reader);
 
   int get typeId => reader.getUInt64(2, 0);
 
@@ -408,19 +382,19 @@ final class Field_Which_Group_Reader extends Field_Which_Reader {
 }
 
 final class Field_Which_NotInSchema_Reader extends Field_Which_Reader {
-  const Field_Which_NotInSchema_Reader();
+  const Field_Which_NotInSchema_Reader(super.reader);
 
   @override
   String toString() => '<not in schema>';
 }
 
-sealed class Field_Ordinal_Which_Reader extends CapnpReader {
-  const Field_Ordinal_Which_Reader();
+sealed class Field_Ordinal_Which_Reader extends CapnpStructReader {
+  const Field_Ordinal_Which_Reader(super.reader);
 }
 
 final class Field_Ordinal_Which_Implicit_Reader
     extends Field_Ordinal_Which_Reader {
-  const Field_Ordinal_Which_Implicit_Reader();
+  const Field_Ordinal_Which_Implicit_Reader(super.reader);
 
   @override
   String toString() => '(implicit = ())';
@@ -428,9 +402,7 @@ final class Field_Ordinal_Which_Implicit_Reader
 
 final class Field_Ordinal_Which_Explicit_Reader
     extends Field_Ordinal_Which_Reader {
-  const Field_Ordinal_Which_Explicit_Reader(this.reader);
-
-  final StructReader reader;
+  const Field_Ordinal_Which_Explicit_Reader(super.reader);
 
   int get value => reader.getUInt16(6, 0);
 
@@ -440,7 +412,7 @@ final class Field_Ordinal_Which_Explicit_Reader
 
 final class Field_Ordinal_Which_NotInSchema_Reader
     extends Field_Ordinal_Which_Reader {
-  const Field_Ordinal_Which_NotInSchema_Reader();
+  const Field_Ordinal_Which_NotInSchema_Reader(super.reader);
 
   @override
   String toString() => '<not in schema>';
@@ -448,8 +420,8 @@ final class Field_Ordinal_Which_NotInSchema_Reader
 
 // Node.SourceInfo.Member
 
-final class Enumerant_Reader extends CapnpReader {
-  const Enumerant_Reader(this.reader);
+final class Enumerant_Reader extends CapnpStructReader {
+  const Enumerant_Reader(super.reader);
 
   static CapnpResult<Enumerant_Reader> fromPointer(
     PointerReader reader,
@@ -457,17 +429,15 @@ final class Enumerant_Reader extends CapnpReader {
   ) =>
       reader.getStruct(defaultValue).map(Enumerant_Reader.new);
 
-  final StructReader reader;
-
-  bool get hasName => !reader.getPointerField(0).isNull;
-  String get name => reader.getPointerField(0).getText(null).unwrap();
+  bool get hasName => !reader.getPointer(0).isNull;
+  String get name => reader.getPointer(0).getText(null).unwrap();
 
   int get codeOrder => reader.getUInt16(0, 0);
 
-  bool get hasAnnotations => !reader.getPointerField(1).isNull;
+  bool get hasAnnotations => !reader.getPointer(1).isNull;
   StructListReader<Annotation_Reader> get annotations {
     return StructListReader.fromPointer(
-      reader.getPointerField(1),
+      reader.getPointer(1),
       Annotation_Reader.new,
       null,
     ).unwrap();
@@ -482,8 +452,8 @@ final class Enumerant_Reader extends CapnpReader {
 
 // Type
 
-final class Type_Reader extends CapnpReader {
-  const Type_Reader(this.reader);
+final class Type_Reader extends CapnpStructReader {
+  const Type_Reader(super.reader);
 
   static CapnpResult<Type_Reader> fromPointer(
     PointerReader reader,
@@ -491,30 +461,28 @@ final class Type_Reader extends CapnpReader {
   ) =>
       reader.getStruct(defaultValue).map(Type_Reader.new);
 
-  final StructReader reader;
-
   Type_Which_Reader get which {
     return switch (reader.getUInt16(0, 0)) {
-      0 => const Type_Which_Void_Reader(),
-      1 => const Type_Which_Bool_Reader(),
-      2 => const Type_Which_Int8_Reader(),
-      3 => const Type_Which_Int16_Reader(),
-      4 => const Type_Which_Int32_Reader(),
-      5 => const Type_Which_Int64_Reader(),
-      6 => const Type_Which_Uint8_Reader(),
-      7 => const Type_Which_Uint16_Reader(),
-      8 => const Type_Which_Uint32_Reader(),
-      9 => const Type_Which_Uint64_Reader(),
-      10 => const Type_Which_Float32_Reader(),
-      11 => const Type_Which_Float64_Reader(),
-      12 => const Type_Which_Text_Reader(),
-      13 => const Type_Which_Data_Reader(),
+      0 => Type_Which_Void_Reader(reader),
+      1 => Type_Which_Bool_Reader(reader),
+      2 => Type_Which_Int8_Reader(reader),
+      3 => Type_Which_Int16_Reader(reader),
+      4 => Type_Which_Int32_Reader(reader),
+      5 => Type_Which_Int64_Reader(reader),
+      6 => Type_Which_Uint8_Reader(reader),
+      7 => Type_Which_Uint16_Reader(reader),
+      8 => Type_Which_Uint32_Reader(reader),
+      9 => Type_Which_Uint64_Reader(reader),
+      10 => Type_Which_Float32_Reader(reader),
+      11 => Type_Which_Float64_Reader(reader),
+      12 => Type_Which_Text_Reader(reader),
+      13 => Type_Which_Data_Reader(reader),
       14 => Type_Which_List_Reader(reader),
       15 => Type_Which_Enum_Reader(reader),
       16 => Type_Which_Struct_Reader(reader),
       17 => Type_Which_Interface_Reader(reader),
       18 => Type_Which_AnyPointer_Reader(reader),
-      _ => const Type_Which_NotInSchema_Reader(),
+      _ => Type_Which_NotInSchema_Reader(reader),
     };
   }
 
@@ -522,125 +490,121 @@ final class Type_Reader extends CapnpReader {
   String toString() => '($which)';
 }
 
-sealed class Type_Which_Reader extends CapnpReader {
-  const Type_Which_Reader();
+sealed class Type_Which_Reader extends CapnpStructReader {
+  const Type_Which_Reader(super.reader);
 }
 
 final class Type_Which_Void_Reader extends Type_Which_Reader {
-  const Type_Which_Void_Reader();
+  const Type_Which_Void_Reader(super.reader);
 
   @override
   String toString() => '(void = ())';
 }
 
 final class Type_Which_Bool_Reader extends Type_Which_Reader {
-  const Type_Which_Bool_Reader();
+  const Type_Which_Bool_Reader(super.reader);
 
   @override
   String toString() => '(bool = ())';
 }
 
 final class Type_Which_Int8_Reader extends Type_Which_Reader {
-  const Type_Which_Int8_Reader();
+  const Type_Which_Int8_Reader(super.reader);
 
   @override
   String toString() => '(int8 = ())';
 }
 
 final class Type_Which_Int16_Reader extends Type_Which_Reader {
-  const Type_Which_Int16_Reader();
+  const Type_Which_Int16_Reader(super.reader);
 
   @override
   String toString() => '(int16 = ())';
 }
 
 final class Type_Which_Int32_Reader extends Type_Which_Reader {
-  const Type_Which_Int32_Reader();
+  const Type_Which_Int32_Reader(super.reader);
 
   @override
   String toString() => '(int32 = ())';
 }
 
 final class Type_Which_Int64_Reader extends Type_Which_Reader {
-  const Type_Which_Int64_Reader();
+  const Type_Which_Int64_Reader(super.reader);
 
   @override
   String toString() => '(int64 = ())';
 }
 
 final class Type_Which_Uint8_Reader extends Type_Which_Reader {
-  const Type_Which_Uint8_Reader();
+  const Type_Which_Uint8_Reader(super.reader);
 
   @override
   String toString() => '(uint8 = ())';
 }
 
 final class Type_Which_Uint16_Reader extends Type_Which_Reader {
-  const Type_Which_Uint16_Reader();
+  const Type_Which_Uint16_Reader(super.reader);
 
   @override
   String toString() => '(uint16 = ())';
 }
 
 final class Type_Which_Uint32_Reader extends Type_Which_Reader {
-  const Type_Which_Uint32_Reader();
+  const Type_Which_Uint32_Reader(super.reader);
 
   @override
   String toString() => '(uint32 = ())';
 }
 
 final class Type_Which_Uint64_Reader extends Type_Which_Reader {
-  const Type_Which_Uint64_Reader();
+  const Type_Which_Uint64_Reader(super.reader);
 
   @override
   String toString() => '(uint64 = ())';
 }
 
 final class Type_Which_Float32_Reader extends Type_Which_Reader {
-  const Type_Which_Float32_Reader();
+  const Type_Which_Float32_Reader(super.reader);
 
   @override
   String toString() => '(float32 = ())';
 }
 
 final class Type_Which_Float64_Reader extends Type_Which_Reader {
-  const Type_Which_Float64_Reader();
+  const Type_Which_Float64_Reader(super.reader);
 
   @override
   String toString() => '(float64 = ())';
 }
 
 final class Type_Which_Text_Reader extends Type_Which_Reader {
-  const Type_Which_Text_Reader();
+  const Type_Which_Text_Reader(super.reader);
 
   @override
   String toString() => '(text = ())';
 }
 
 final class Type_Which_Data_Reader extends Type_Which_Reader {
-  const Type_Which_Data_Reader();
+  const Type_Which_Data_Reader(super.reader);
 
   @override
   String toString() => '(data = ())';
 }
 
 final class Type_Which_List_Reader extends Type_Which_Reader {
-  const Type_Which_List_Reader(this.reader);
+  const Type_Which_List_Reader(super.reader);
 
-  final StructReader reader;
-
-  bool get hasElementType => !reader.getPointerField(0).isNull;
+  bool get hasElementType => !reader.getPointer(0).isNull;
   Type_Reader get elementType =>
-      Type_Reader(reader.getPointerField(0).getStruct(null).unwrap());
+      Type_Reader(reader.getPointer(0).getStruct(null).unwrap());
 
   @override
   String toString() => '(list = (elementType = $elementType))';
 }
 
 final class Type_Which_Enum_Reader extends Type_Which_Reader {
-  const Type_Which_Enum_Reader(this.reader);
-
-  final StructReader reader;
+  const Type_Which_Enum_Reader(super.reader);
 
   int get typeId => reader.getUInt64(1, 0);
 
@@ -651,9 +615,7 @@ final class Type_Which_Enum_Reader extends Type_Which_Reader {
 }
 
 final class Type_Which_Struct_Reader extends Type_Which_Reader {
-  const Type_Which_Struct_Reader(this.reader);
-
-  final StructReader reader;
+  const Type_Which_Struct_Reader(super.reader);
 
   int get typeId => reader.getUInt64(1, 0);
 
@@ -664,9 +626,7 @@ final class Type_Which_Struct_Reader extends Type_Which_Reader {
 }
 
 final class Type_Which_Interface_Reader extends Type_Which_Reader {
-  const Type_Which_Interface_Reader(this.reader);
-
-  final StructReader reader;
+  const Type_Which_Interface_Reader(super.reader);
 
   int get typeId => reader.getUInt64(1, 0);
 
@@ -677,9 +637,7 @@ final class Type_Which_Interface_Reader extends Type_Which_Reader {
 }
 
 final class Type_Which_AnyPointer_Reader extends Type_Which_Reader {
-  const Type_Which_AnyPointer_Reader(this.reader);
-
-  final StructReader reader;
+  const Type_Which_AnyPointer_Reader(super.reader);
 
   // TODO(JonasWanke): union
 
@@ -688,7 +646,7 @@ final class Type_Which_AnyPointer_Reader extends Type_Which_Reader {
 }
 
 final class Type_Which_NotInSchema_Reader extends Type_Which_Reader {
-  const Type_Which_NotInSchema_Reader();
+  const Type_Which_NotInSchema_Reader(super.reader);
 
   @override
   String toString() => '<not in schema>';
@@ -696,8 +654,8 @@ final class Type_Which_NotInSchema_Reader extends Type_Which_Reader {
 
 // Value
 
-final class Value_Reader extends CapnpReader {
-  const Value_Reader(this.reader);
+final class Value_Reader extends CapnpStructReader {
+  const Value_Reader(super.reader);
 
   static CapnpResult<Value_Reader> fromPointer(
     PointerReader reader,
@@ -705,11 +663,9 @@ final class Value_Reader extends CapnpReader {
   ) =>
       reader.getStruct(defaultValue).map(Value_Reader.new);
 
-  final StructReader reader;
-
   Value_Which_Reader get which {
     return switch (reader.getUInt16(0, 0)) {
-      0 => const Value_Which_Void_Reader(),
+      0 => Value_Which_Void_Reader(reader),
       1 => Value_Which_Bool_Reader(reader),
       2 => Value_Which_Int8_Reader(reader),
       3 => Value_Which_Int16_Reader(reader),
@@ -726,9 +682,9 @@ final class Value_Reader extends CapnpReader {
       14 => Value_Which_List_Reader(reader),
       15 => Value_Which_Enum_Reader(reader),
       16 => Value_Which_Struct_Reader(reader),
-      17 => const Value_Which_Interface_Reader(),
-      18 => const Value_Which_AnyPointer_Reader(),
-      _ => const Value_Which_NotInSchema_Reader(),
+      17 => Value_Which_Interface_Reader(reader),
+      18 => Value_Which_AnyPointer_Reader(reader),
+      _ => Value_Which_NotInSchema_Reader(reader),
     };
   }
 
@@ -736,12 +692,12 @@ final class Value_Reader extends CapnpReader {
   String toString() => '($which)';
 }
 
-sealed class Value_Which_Reader extends CapnpReader {
-  const Value_Which_Reader();
+sealed class Value_Which_Reader extends CapnpStructReader {
+  const Value_Which_Reader(super.reader);
 }
 
 final class Value_Which_Void_Reader extends Value_Which_Reader {
-  const Value_Which_Void_Reader();
+  const Value_Which_Void_Reader(super.reader);
 
   void get value {}
 
@@ -750,9 +706,7 @@ final class Value_Which_Void_Reader extends Value_Which_Reader {
 }
 
 final class Value_Which_Bool_Reader extends Value_Which_Reader {
-  const Value_Which_Bool_Reader(this.reader);
-
-  final StructReader reader;
+  const Value_Which_Bool_Reader(super.reader);
 
   bool get value => reader.getBool(16, false);
 
@@ -761,9 +715,7 @@ final class Value_Which_Bool_Reader extends Value_Which_Reader {
 }
 
 final class Value_Which_Int8_Reader extends Value_Which_Reader {
-  const Value_Which_Int8_Reader(this.reader);
-
-  final StructReader reader;
+  const Value_Which_Int8_Reader(super.reader);
 
   int get value => reader.getInt8(2, 0);
 
@@ -772,9 +724,7 @@ final class Value_Which_Int8_Reader extends Value_Which_Reader {
 }
 
 final class Value_Which_Int16_Reader extends Value_Which_Reader {
-  const Value_Which_Int16_Reader(this.reader);
-
-  final StructReader reader;
+  const Value_Which_Int16_Reader(super.reader);
 
   int get value => reader.getInt16(1, 0);
 
@@ -783,9 +733,7 @@ final class Value_Which_Int16_Reader extends Value_Which_Reader {
 }
 
 final class Value_Which_Int32_Reader extends Value_Which_Reader {
-  const Value_Which_Int32_Reader(this.reader);
-
-  final StructReader reader;
+  const Value_Which_Int32_Reader(super.reader);
 
   int get value => reader.getInt32(1, 0);
 
@@ -794,9 +742,7 @@ final class Value_Which_Int32_Reader extends Value_Which_Reader {
 }
 
 final class Value_Which_Int64_Reader extends Value_Which_Reader {
-  const Value_Which_Int64_Reader(this.reader);
-
-  final StructReader reader;
+  const Value_Which_Int64_Reader(super.reader);
 
   int get value => reader.getInt64(1, 0);
 
@@ -805,9 +751,7 @@ final class Value_Which_Int64_Reader extends Value_Which_Reader {
 }
 
 final class Value_Which_Uint8_Reader extends Value_Which_Reader {
-  const Value_Which_Uint8_Reader(this.reader);
-
-  final StructReader reader;
+  const Value_Which_Uint8_Reader(super.reader);
 
   int get value => reader.getUInt8(2, 0);
 
@@ -816,9 +760,7 @@ final class Value_Which_Uint8_Reader extends Value_Which_Reader {
 }
 
 final class Value_Which_Uint16_Reader extends Value_Which_Reader {
-  const Value_Which_Uint16_Reader(this.reader);
-
-  final StructReader reader;
+  const Value_Which_Uint16_Reader(super.reader);
 
   int get value => reader.getUInt16(1, 0);
 
@@ -827,9 +769,7 @@ final class Value_Which_Uint16_Reader extends Value_Which_Reader {
 }
 
 final class Value_Which_Uint32_Reader extends Value_Which_Reader {
-  const Value_Which_Uint32_Reader(this.reader);
-
-  final StructReader reader;
+  const Value_Which_Uint32_Reader(super.reader);
 
   int get value => reader.getUInt32(1, 0);
 
@@ -838,9 +778,7 @@ final class Value_Which_Uint32_Reader extends Value_Which_Reader {
 }
 
 final class Value_Which_Uint64_Reader extends Value_Which_Reader {
-  const Value_Which_Uint64_Reader(this.reader);
-
-  final StructReader reader;
+  const Value_Which_Uint64_Reader(super.reader);
 
   int get value => reader.getUInt64(1, 0);
 
@@ -849,9 +787,7 @@ final class Value_Which_Uint64_Reader extends Value_Which_Reader {
 }
 
 final class Value_Which_Float32_Reader extends Value_Which_Reader {
-  const Value_Which_Float32_Reader(this.reader);
-
-  final StructReader reader;
+  const Value_Which_Float32_Reader(super.reader);
 
   double get value => reader.getFloat32(1, 0);
 
@@ -860,9 +796,7 @@ final class Value_Which_Float32_Reader extends Value_Which_Reader {
 }
 
 final class Value_Which_Float64_Reader extends Value_Which_Reader {
-  const Value_Which_Float64_Reader(this.reader);
-
-  final StructReader reader;
+  const Value_Which_Float64_Reader(super.reader);
 
   double get value => reader.getFloat64(1, 0);
 
@@ -871,42 +805,34 @@ final class Value_Which_Float64_Reader extends Value_Which_Reader {
 }
 
 final class Value_Which_Text_Reader extends Value_Which_Reader {
-  const Value_Which_Text_Reader(this.reader);
+  const Value_Which_Text_Reader(super.reader);
 
-  final StructReader reader;
-
-  String get value => reader.getPointerField(0).getText(null).unwrap();
+  String get value => reader.getPointer(0).getText(null).unwrap();
 
   @override
   String toString() => 'text = $value';
 }
 
 final class Value_Which_Data_Reader extends Value_Which_Reader {
-  const Value_Which_Data_Reader(this.reader);
+  const Value_Which_Data_Reader(super.reader);
 
-  final StructReader reader;
-
-  ByteData get value => reader.getPointerField(0).getData(null).unwrap();
+  ByteData get value => reader.getPointer(0).getData(null).unwrap();
 
   @override
   String toString() => 'data = $value';
 }
 
 final class Value_Which_List_Reader extends Value_Which_Reader {
-  const Value_Which_List_Reader(this.reader);
+  const Value_Which_List_Reader(super.reader);
 
-  final StructReader reader;
-
-  AnyPointerReader get value => AnyPointerReader(reader.getPointerField(0));
+  AnyPointerReader get value => AnyPointerReader(reader.getPointer(0));
 
   @override
   String toString() => 'list = $value';
 }
 
 final class Value_Which_Enum_Reader extends Value_Which_Reader {
-  const Value_Which_Enum_Reader(this.reader);
-
-  final StructReader reader;
+  const Value_Which_Enum_Reader(super.reader);
 
   int get value => reader.getUInt16(1, 0);
 
@@ -915,32 +841,30 @@ final class Value_Which_Enum_Reader extends Value_Which_Reader {
 }
 
 final class Value_Which_Struct_Reader extends Value_Which_Reader {
-  const Value_Which_Struct_Reader(this.reader);
+  const Value_Which_Struct_Reader(super.reader);
 
-  final StructReader reader;
-
-  AnyPointerReader get value => AnyPointerReader(reader.getPointerField(0));
+  AnyPointerReader get value => AnyPointerReader(reader.getPointer(0));
 
   @override
   String toString() => 'struct = $value';
 }
 
 final class Value_Which_Interface_Reader extends Value_Which_Reader {
-  const Value_Which_Interface_Reader();
+  const Value_Which_Interface_Reader(super.reader);
 
   @override
   String toString() => 'interface = ()';
 }
 
 final class Value_Which_AnyPointer_Reader extends Value_Which_Reader {
-  const Value_Which_AnyPointer_Reader();
+  const Value_Which_AnyPointer_Reader(super.reader);
 
   @override
   String toString() => 'anyPointer = ()';
 }
 
 final class Value_Which_NotInSchema_Reader extends Value_Which_Reader {
-  const Value_Which_NotInSchema_Reader();
+  const Value_Which_NotInSchema_Reader(super.reader);
 
   @override
   String toString() => '<not in schema>';
@@ -948,8 +872,8 @@ final class Value_Which_NotInSchema_Reader extends Value_Which_Reader {
 
 // Annotation
 
-final class Annotation_Reader extends CapnpReader {
-  const Annotation_Reader(this.reader);
+final class Annotation_Reader extends CapnpStructReader {
+  const Annotation_Reader(super.reader);
 
   static CapnpResult<Annotation_Reader> fromPointer(
     PointerReader reader,
@@ -957,14 +881,12 @@ final class Annotation_Reader extends CapnpReader {
   ) =>
       reader.getStruct(defaultValue).map(Annotation_Reader.new);
 
-  final StructReader reader;
-
   int get id => reader.getUInt64(0, 0);
 
   // TODO(JonasWanke): brand
 
   Value_Reader get value =>
-      Value_Reader(reader.getPointerField(0).getStruct(null).unwrap());
+      Value_Reader(reader.getPointer(0).getStruct(null).unwrap());
 
   @override
   String toString() => '(id = $id, value = $value)';
@@ -1004,16 +926,14 @@ enum ElementSize {
 
 // CapnpVersion
 
-final class CapnpVersion_Reader extends CapnpReader {
-  const CapnpVersion_Reader(this.reader);
+final class CapnpVersion_Reader extends CapnpStructReader {
+  const CapnpVersion_Reader(super.reader);
 
   static CapnpResult<CapnpVersion_Reader> fromPointer(
     PointerReader reader,
     ByteData? defaultValue,
   ) =>
       reader.getStruct(defaultValue).map(CapnpVersion_Reader.new);
-
-  final StructReader reader;
 
   int get major => reader.getUInt16(0, 0);
 
@@ -1027,8 +947,8 @@ final class CapnpVersion_Reader extends CapnpReader {
 
 // CodeGeneratorRequest
 
-final class CodeGeneratorRequest_Reader extends CapnpReader {
-  const CodeGeneratorRequest_Reader(this.reader);
+final class CodeGeneratorRequest_Reader extends CapnpStructReader {
+  const CodeGeneratorRequest_Reader(super.reader);
 
   static CapnpResult<CodeGeneratorRequest_Reader> fromPointer(
     PointerReader reader,
@@ -1036,35 +956,33 @@ final class CodeGeneratorRequest_Reader extends CapnpReader {
   ) =>
       reader.getStruct(defaultValue).map(CodeGeneratorRequest_Reader.new);
 
-  final StructReader reader;
-
-  bool get hasCapnpVersion => !reader.getPointerField(2).isNull;
+  bool get hasCapnpVersion => !reader.getPointer(2).isNull;
   CapnpVersion_Reader get capnpVersion =>
-      CapnpVersion_Reader(reader.getPointerField(2).getStruct(null).unwrap());
+      CapnpVersion_Reader(reader.getPointer(2).getStruct(null).unwrap());
 
-  bool get hasNodes => !reader.getPointerField(0).isNull;
+  bool get hasNodes => !reader.getPointer(0).isNull;
   StructListReader<Node_Reader> get nodes {
     return StructListReader.fromPointer(
-      reader.getPointerField(0),
+      reader.getPointer(0),
       Node_Reader.new,
       null,
     ).unwrap();
   }
 
-  bool get hasSourceInfo => !reader.getPointerField(3).isNull;
+  bool get hasSourceInfo => !reader.getPointer(3).isNull;
   StructListReader<Node_SourceInfo_Reader> get sourceInfo {
     return StructListReader.fromPointer(
-      reader.getPointerField(3),
+      reader.getPointer(3),
       Node_SourceInfo_Reader.new,
       null,
     ).unwrap();
   }
 
-  bool get hasRequestedFiles => !reader.getPointerField(1).isNull;
+  bool get hasRequestedFiles => !reader.getPointer(1).isNull;
   StructListReader<CodeGeneratorRequest_RequestedFile_Reader>
       get requestedFiles {
     return StructListReader.fromPointer(
-      reader.getPointerField(1),
+      reader.getPointer(1),
       CodeGeneratorRequest_RequestedFile_Reader.new,
       null,
     ).unwrap();
@@ -1080,8 +998,9 @@ final class CodeGeneratorRequest_Reader extends CapnpReader {
 
 // CodeGeneratorRequest.RequestedFile
 
-final class CodeGeneratorRequest_RequestedFile_Reader extends CapnpReader {
-  const CodeGeneratorRequest_RequestedFile_Reader(this.reader);
+final class CodeGeneratorRequest_RequestedFile_Reader
+    extends CapnpStructReader {
+  const CodeGeneratorRequest_RequestedFile_Reader(super.reader);
 
   static CapnpResult<CodeGeneratorRequest_RequestedFile_Reader> fromPointer(
     PointerReader reader,
@@ -1091,18 +1010,16 @@ final class CodeGeneratorRequest_RequestedFile_Reader extends CapnpReader {
           .getStruct(defaultValue)
           .map(CodeGeneratorRequest_RequestedFile_Reader.new);
 
-  final StructReader reader;
-
   int get id => reader.getUInt64(0, 0);
 
-  bool get hasFilename => !reader.getPointerField(0).isNull;
-  String get filename => reader.getPointerField(0).getText(null).unwrap();
+  bool get hasFilename => !reader.getPointer(0).isNull;
+  String get filename => reader.getPointer(0).getText(null).unwrap();
 
-  bool get hasImports => !reader.getPointerField(1).isNull;
+  bool get hasImports => !reader.getPointer(1).isNull;
   StructListReader<CodeGeneratorRequest_RequestedFile_Import_Reader>
       get imports {
     return StructListReader.fromPointer(
-      reader.getPointerField(1),
+      reader.getPointer(1),
       CodeGeneratorRequest_RequestedFile_Import_Reader.new,
       null,
     ).unwrap();
@@ -1116,8 +1033,8 @@ final class CodeGeneratorRequest_RequestedFile_Reader extends CapnpReader {
 // CodeGeneratorRequest.RequestedFile.Import
 
 final class CodeGeneratorRequest_RequestedFile_Import_Reader
-    extends CapnpReader {
-  const CodeGeneratorRequest_RequestedFile_Import_Reader(this.reader);
+    extends CapnpStructReader {
+  const CodeGeneratorRequest_RequestedFile_Import_Reader(super.reader);
 
   static CapnpResult<CodeGeneratorRequest_RequestedFile_Import_Reader>
       fromPointer(
@@ -1128,12 +1045,10 @@ final class CodeGeneratorRequest_RequestedFile_Import_Reader
               .getStruct(defaultValue)
               .map(CodeGeneratorRequest_RequestedFile_Import_Reader.new);
 
-  final StructReader reader;
-
   int get id => reader.getUInt64(0, 0);
 
-  bool get hasName => !reader.getPointerField(0).isNull;
-  String get name => reader.getPointerField(0).getText(null).unwrap();
+  bool get hasName => !reader.getPointer(0).isNull;
+  String get name => reader.getPointer(0).getText(null).unwrap();
 
   @override
   String toString() => '(id = $id, name = $name)';

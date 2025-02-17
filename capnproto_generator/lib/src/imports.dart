@@ -12,7 +12,7 @@ class Imports {
   String _importTypedData(String identifier) =>
       import(Uri.parse('dart:typed_data'), identifier, prefix: r'$typed_data');
 
-  String get capnpReader => _importCapnproto('CapnpReader');
+  String get capnpStructReader => _importCapnproto('CapnpStructReader');
   String get structReader => _importCapnproto('StructReader');
   String _importCapnproto(String identifier) {
     return import(
