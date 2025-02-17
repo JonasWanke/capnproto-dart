@@ -212,10 +212,6 @@ class FileGenerator {
     final node = context.nodeMap[nodeId]!;
     final name = context.nodeImportsAndNames[nodeId]!.name;
 
-    for (final nestedNode in node.nestedNodes) {
-      _generateNode(nestedNode.id);
-    }
-
     switch (node.which) {
       case Node_Which_File_Reader():
         break;
@@ -280,6 +276,10 @@ class FileGenerator {
         throw UnsupportedError('Unknown node type');
     }
     _buffer.writeln();
+
+    for (final nestedNode in node.nestedNodes) {
+      _generateNode(nestedNode.id);
+    }
   }
 
   void _generateField(Field_Reader field) {
@@ -288,12 +288,12 @@ class FileGenerator {
       case final Field_Which_Slot_Reader slot:
         void generateHas() {
           _buffer.writeln(
-            '${_imports.bool} get has${name.uppercaseFirst()} => '
+            '${_imports.bool} get has${name.capitalize()} => '
             '!reader.getPointer(${slot.offset}).isNull;',
           );
         }
 
-        final defaultName = '_default${name.uppercaseFirst()}';
+        final defaultName = '_default${name.capitalize()}';
 
         switch ((slot.type.which, slot.defaultValue.which)) {
           case (Type_Which_Void_Reader(), Value_Which_Void_Reader()):
@@ -418,12 +418,87 @@ class FileGenerator {
             );
 
           case (
-              Type_Which_List_Reader(),
+              Type_Which_List_Reader(:final elementType),
               Value_Which_List_Reader(:final value),
             ):
-            // FIXME
-            // throw UnimplementedError();
-            break;
+            generateHas();
+
+            if (slot.hadExplicitDefault) {
+              generateConstant(defaultName, value, _buffer).unwrap();
+            }
+            final defaultValue = slot.hadExplicitDefault ? defaultName : null;
+
+            void generatePrimitiveList(String dartType, String capnpType) {
+              _buffer.writeln(
+                '${_imports.primitiveListReader}<$dartType> get $name =>'
+                // ignore: lines_longer_than_80_chars
+                '${_imports.primitiveListReader}.${capnpType}FromPointer(reader.getPointer(${slot.offset}), $defaultValue).unwrap();',
+              );
+            }
+            switch (elementType.which) {
+              case Type_Which_Void_Reader():
+                generatePrimitiveList('void', 'void');
+              case Type_Which_Bool_Reader():
+                generatePrimitiveList('bool', 'bool');
+              case Type_Which_Int8_Reader():
+                generatePrimitiveList('int', 'int8');
+              case Type_Which_Int16_Reader():
+                generatePrimitiveList('int', 'int16');
+              case Type_Which_Int32_Reader():
+                generatePrimitiveList('int', 'int32');
+              case Type_Which_Int64_Reader():
+                generatePrimitiveList('int', 'int64');
+              case Type_Which_Uint8_Reader():
+                generatePrimitiveList('int', 'uint8');
+              case Type_Which_Uint16_Reader():
+                generatePrimitiveList('int', 'uint16');
+              case Type_Which_Uint32_Reader():
+                generatePrimitiveList('int', 'uint32');
+              case Type_Which_Uint64_Reader():
+                generatePrimitiveList('int', 'uint64');
+              case Type_Which_Float32_Reader():
+                generatePrimitiveList('double', 'float32');
+              case Type_Which_Float64_Reader():
+                generatePrimitiveList('double', 'float64');
+              case Type_Which_Text_Reader():
+                _buffer.writeln(
+                  '${_imports.textListReader} get $name =>'
+                  // ignore: lines_longer_than_80_chars
+                  '${_imports.textListReader}.getFromPointer(reader.getPointer(${slot.offset}), $defaultValue).unwrap();',
+                );
+              case Type_Which_Data_Reader():
+                _buffer.writeln(
+                  '${_imports.dataListReader} get $name =>'
+                  // ignore: lines_longer_than_80_chars
+                  '${_imports.dataListReader}.getFromPointer(reader.getPointer(${slot.offset}), $defaultValue).unwrap();',
+                );
+              case Type_Which_List_Reader():
+                throw UnimplementedError();
+              case Type_Which_Enum_Reader():
+                throw UnimplementedError();
+              case Type_Which_Struct_Reader(:final typeId):
+                final elementType = context.nodeImportsAndNames[typeId]!;
+                final elementTypeString =
+                    _imports.import(elementType.importUri, elementType.name);
+                final listType = _imports.structListReader;
+                _buffer.writeln(
+                  '$listType<${elementTypeString}_Reader> get $name {\n'
+                  '  return $listType.fromPointer(\n'
+                  '  reader.getPointer(${slot.offset}),\n'
+                  '  ${elementTypeString}_Reader.new,\n'
+                  '  $defaultValue,\n'
+                  '  ).unwrap();\n'
+                  '}',
+                );
+
+              case Type_Which_Interface_Reader():
+                throw UnimplementedError();
+              case Type_Which_AnyPointer_Reader():
+                throw UnimplementedError();
+              case Type_Which_NotInSchema_Reader():
+                throw UnsupportedError('Unknown list element type');
+            }
+
           case (
               Type_Which_Enum_Reader(),
               Value_Which_Enum_Reader(:final value),
@@ -447,6 +522,7 @@ class FileGenerator {
               // ignore: lines_longer_than_80_chars
               '${typeString}_Reader(reader.getPointer(${slot.offset}).getStruct(${slot.hadExplicitDefault ? defaultName : null}).unwrap());',
             );
+
           case (Type_Which_Interface_Reader(), Value_Which_Interface_Reader()):
             // FIXME
             // throw UnimplementedError();
@@ -539,7 +615,7 @@ const _dartKeywordsToAvoid = {
 };
 
 extension on String {
-  String uppercaseFirst() => substring(0, 1).toUpperCase() + substring(1);
+  String capitalize() => substring(0, 1).toUpperCase() + substring(1);
 
   String avoidDartKeywords() =>
       _dartKeywordsToAvoid.contains(this) ? '${this}_' : this;
