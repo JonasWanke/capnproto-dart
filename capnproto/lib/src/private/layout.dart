@@ -2482,6 +2482,74 @@ final class StructBuilder extends CapnpBuilder<StructReader> {
       WirePointer.fromOffset(pointers, index),
     );
   }
+
+  @useResult
+  CapnpResult<void> copyContentFrom(StructReader other) {
+    // Determine the amount of data the builders have in common.
+
+    final dataBits = dataSize * CapnpConstants.bitsPerByte;
+    final sharedDataBits = min(dataBits, other.dataBits);
+    final sharedPointerCount = min(pointerCount, other.pointerCount);
+
+    if ((sharedDataBits > 0 && data == other.data) ||
+        (sharedPointerCount > 0 && pointers == other.pointers)) {
+      // At least one of the section pointers is pointing to ourself. Verif
+      // that the other is too (but ignore empty sections).
+      if ((sharedDataBits == 0 || data == other.data) &&
+          (sharedPointerCount == 0 || pointers == other.pointers)) {
+        return const Err(
+          OnlyOneOfTheSectionPointersIsPointingToOurselfCapnpError(),
+        );
+      }
+
+      // So `other` appears to be a reader for this same struct. No copying is
+      // needed.
+      return const Ok(null);
+    }
+
+    if (dataBits > sharedDataBits) {
+      // Since the target is larger than the source, make sure to zero out the
+      // extra bits that the source doesn't have.
+      if (dataBits == 1) {
+        setBool(0, false, false);
+      } else {
+        data.zeroBytes(
+          sharedDataBits ~/ CapnpConstants.bitsPerByte,
+          (dataBits - sharedDataBits) ~/ CapnpConstants.bitsPerByte,
+        );
+      }
+    }
+
+    // Copy over the shared part.
+    if (sharedDataBits == 1) {
+      setBool(0, other.getBool(0, false), false);
+    } else {
+      other.data
+          .copyBytesTo(data, sharedDataBits ~/ CapnpConstants.bitsPerByte);
+    }
+
+    // Zero out all pointers in the target.
+    for (var i = 0; i < pointerCount; i++) {
+      PointerBuilder._zeroObject(arena, WirePointer.fromOffset(pointers, i));
+    }
+    pointers.zeroWords(0, pointerCount);
+
+    for (var i = 0; i < sharedPointerCount; i++) {
+      final result =
+          PointerBuilder._(arena, segmentId, WirePointer.fromOffset(data, i))
+              .set(
+        PointerReader._(
+          other.arena,
+          other.segmentId,
+          WirePointer.fromOffset(other.data, i),
+          nestingLimit: other.nestingLimit,
+        ),
+      );
+      if (result case Err(:final error)) return Err(error);
+    }
+
+    return const Ok(null);
+  }
 }
 
 final class ListReader extends CapnpReader {

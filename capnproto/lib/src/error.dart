@@ -78,6 +78,11 @@ class StructReaderHadBitwidthOtherThan1CapnpError extends CapnpError {
   const StructReaderHadBitwidthOtherThan1CapnpError();
 }
 
+class OnlyOneOfTheSectionPointersIsPointingToOurselfCapnpError
+    extends CapnpError {
+  const OnlyOneOfTheSectionPointersIsPointingToOurselfCapnpError();
+}
+
 // List
 
 class NestingLimitExceededCapnpError extends CapnpError {
