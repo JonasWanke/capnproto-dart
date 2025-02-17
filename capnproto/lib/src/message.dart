@@ -101,7 +101,8 @@ class MessageReader {
 
 /// A container used to build a message.
 class MessageBuilder {
-  MessageBuilder() : _arena = BuilderArenaImpl();
+  MessageBuilder({HeapAllocator? allocator})
+      : _arena = BuilderArenaImpl(allocator: allocator);
 
   final BuilderArenaImpl _arena;
   List<ByteData> get segmentsForOutput => _arena.segmentsForOutput;

@@ -123,9 +123,11 @@ abstract class BuilderArena extends ReaderArena {
 }
 
 class BuilderArenaImpl extends BuilderArena {
-  BuilderArenaImpl() : segments = [];
+  BuilderArenaImpl({HeapAllocator? allocator})
+      : allocator = allocator ?? HeapAllocator(),
+        segments = [];
 
-  final _HeapAllocator _allocator = _HeapAllocator();
+  final HeapAllocator allocator;
 
   final List<BuilderSegment> segments;
   List<ByteData> get segmentsForOutput {
@@ -144,7 +146,7 @@ class BuilderArenaImpl extends BuilderArena {
   bool get isNotEmpty => segments.isNotEmpty;
 
   void allocateSegment(int minimumSizeWords) => segments
-      .add(BuilderSegment(_allocator.allocateSegment(minimumSizeWords), 0));
+      .add(BuilderSegment(allocator.allocateSegment(minimumSizeWords), 0));
 
   @override
   ({int wordIndex, ByteData data})? allocate(
@@ -234,18 +236,22 @@ class BuilderArenaImpl extends BuilderArena {
   CapnpResult<void> amplifiedRead(int virtualAmount) => const Ok(null);
 }
 
-class _HeapAllocator {
+class HeapAllocator {
+  HeapAllocator({int firstSegmentWords = 1024})
+      : _nextSizeWords = firstSegmentWords;
+
   static const maxSegmentWords = 1 << 29;
 
-  int nextSizeWords = 1024;
+  int _nextSizeWords;
+  int get nextSizeWords => _nextSizeWords;
 
   ByteData allocateSegment(int minimumSizeWords) {
     final size = max(minimumSizeWords, nextSizeWords);
     final data = ByteData(size);
     if (size < maxSegmentWords - nextSizeWords) {
-      nextSizeWords += size;
+      _nextSizeWords += size;
     } else {
-      nextSizeWords = nextSizeWords + maxSegmentWords;
+      _nextSizeWords = nextSizeWords + maxSegmentWords;
     }
     return data;
   }
