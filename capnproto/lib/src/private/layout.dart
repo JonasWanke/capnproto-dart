@@ -1131,6 +1131,145 @@ final class PointerBuilder extends CapnpBuilder<PointerReader> {
   }
 
   @useResult
+  CapnpResult<ListBuilder> getList(
+    ElementSize elementSize,
+    ByteData? defaultValue,
+  ) {
+    assert(
+      elementSize != ElementSize.inlineComposite,
+      'Use `getStructList(…)` for struct lists.',
+    );
+
+    var originalSegmentId = this.segmentId;
+    var originalRef = pointer;
+    var originalData = originalRef.target;
+    if (pointer.isNull) {
+      if (defaultValue == null) return Ok(ListBuilder.defaultBuilder(arena));
+
+      final defaultRef = WirePointer.fromOffset(defaultValue, 0);
+      if (defaultRef.isNull) return Ok(ListBuilder.defaultBuilder(arena));
+
+      final (newOriginalSegment, newOriginalRef, newOriginalData) =
+          _copyMessage(arena, originalSegmentId, defaultRef, originalRef);
+      originalSegmentId = newOriginalSegment;
+      originalRef = newOriginalRef;
+      originalData = newOriginalData;
+    }
+
+    // We must verify that the pointer has the right size. Unlike in
+    // [getStructList], we never need to "upgrade" the data, because this method
+    // is called only for non-struct lists, and there is no allowed upgrade path
+    // _to_ a non-struct list, only _from_ them.
+
+    final SegmentId segmentId;
+    final WirePointer ref;
+    ByteData data;
+    switch (_followBuilderFars(
+      arena,
+      originalSegmentId,
+      originalRef,
+      originalData,
+    )) {
+      case Ok(value: (final newSegmentId, final newRef, final newData)):
+        segmentId = newSegmentId;
+        ref = newRef;
+        data = newData;
+      case Err(:final error):
+        return Err(error);
+    }
+
+    if (ref.kind != WirePointerKind.list) {
+      return const Err(ExistingPointerIsNotAListCapnpError());
+    }
+
+    final oldSize = ref.listElementSize;
+
+    if (oldSize == ElementSize.inlineComposite) {
+      // The existing element size is [ElementSize.inlineComposite], which means
+      // that it is at least two words, which makes it bigger than the expected
+      // element size. Since fields can only grow when upgraded, the existing
+      // data must have been written with a newer version of the protocol. We,
+      // therefore, never need to upgrade the data in this case, but we do need
+      // to validate that it is a valid upgrade from what we expected.
+
+      // Read the tag to get the actual element count.
+      final tag = WirePointer.fromOffset(data, 0);
+      if (tag.kind != WirePointerKind.struct) {
+        return const Err(
+          InlineCompositeListWithNonStructElementsNotSupportedCapnpError(),
+        );
+      }
+
+      data = data.offsetWords(1);
+      final structSize = tag.structSize;
+
+      switch (elementSize) {
+        case ElementSize.void_:
+          // Anything is a valid upgrade from Void.
+          break;
+        case ElementSize.bit:
+          return const Err(FoundStructListWhereBitListWasExpectedCapnpError());
+        case ElementSize.byte ||
+              ElementSize.twoBytes ||
+              ElementSize.fourBytes ||
+              ElementSize.eightBytes:
+          if (structSize.dataWords < 1) {
+            return const Err(
+              ExistingListValueIsIncompatibleWithExpectedTypeCapnpError(),
+            );
+          }
+        case ElementSize.pointer:
+          if (structSize.pointerCount < 1) {
+            return const Err(
+              ExistingListValueIsIncompatibleWithExpectedTypeCapnpError(),
+            );
+          }
+          // Adjust the pointer to point at the reference segment.
+          data = data.offsetWords(structSize.dataWords);
+        case ElementSize.inlineComposite:
+          throw ArgumentError('Unexpected ElementSize.inlineComposite');
+      }
+      // Okay, looks valid.
+
+      return Ok(
+        ListBuilder._(
+          arena,
+          segmentId,
+          data,
+          elementSize: ElementSize.inlineComposite,
+          length: tag.inlineCompositeListElementCount,
+          stepBits: tag.structWordSize * CapnpConstants.bitsPerWord,
+          structDataSizeBits: structSize.dataWords * CapnpConstants.bitsPerWord,
+          structPointerCount: structSize.pointerCount,
+        ),
+      );
+    } else {
+      final dataBits = oldSize.dataBitsPerElement;
+      final pointerCount = oldSize.pointersPerElement;
+
+      if (dataBits < elementSize.dataBitsPerElement ||
+          pointerCount < elementSize.pointersPerElement) {
+        return const Err(
+          ExistingListValueIsIncompatibleWithExpectedTypeCapnpError(),
+        );
+      }
+
+      return Ok(
+        ListBuilder._(
+          arena,
+          segmentId,
+          data,
+          elementSize: oldSize,
+          length: ref.listElementCount,
+          stepBits: dataBits + pointerCount * CapnpConstants.bitsPerPointer,
+          structDataSizeBits: dataBits,
+          structPointerCount: pointerCount,
+        ),
+      );
+    }
+  }
+
+  @useResult
   CapnpResult<void> setList(ListReader source, {bool canonicalize = false}) {
     var totalSize = _roundBitsUpToWords(source.length * source.stepBits);
 

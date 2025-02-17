@@ -136,6 +136,11 @@ class InlineCompositeListWithNonStructElementsNotSupportedCapnpError
   const InlineCompositeListWithNonStructElementsNotSupportedCapnpError();
 }
 
+class ExistingListValueIsIncompatibleWithExpectedTypeCapnpError
+    extends CapnpError {
+  const ExistingListValueIsIncompatibleWithExpectedTypeCapnpError();
+}
+
 // Text
 
 class MessageContainsNonListPointerWhereTextWasExpectedCapnpError
