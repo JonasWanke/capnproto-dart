@@ -1,4 +1,7 @@
 class Imports {
+  Imports(this.currentFile);
+
+  final Uri currentFile;
   final imports = <Uri, String>{};
 
   String get bool => _importCore('bool');
@@ -23,6 +26,8 @@ class Imports {
   }
 
   String import(Uri uri, String identifier, {String? prefix}) {
+    if (uri == currentFile) return identifier;
+
     prefix = imports.putIfAbsent(uri, () => prefix ?? '\$i${imports.length}');
     return '$prefix.$identifier';
   }
