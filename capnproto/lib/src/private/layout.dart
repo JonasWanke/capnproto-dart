@@ -1739,6 +1739,47 @@ final class PointerBuilder extends CapnpBuilder<PointerReader> {
     return (segmentId, data.offsetBytes(0, size));
   }
 
+  CapnpResult<ByteData> getData(ByteData? defaultValue) {
+    assert(
+      defaultValue == null ||
+          defaultValue.lengthInBytes == CapnpConstants.bytesPerPointer,
+    );
+
+    var segmentId = this.segmentId;
+    var ref = pointer;
+    var data = ref.target;
+    if (ref.isNull) {
+      if (defaultValue == null) return Ok(_emptyByteData);
+
+      final defaultRef = WirePointer.fromOffset(defaultValue, 0);
+      if (defaultRef.isNull) return Ok(_emptyByteData);
+
+      final (newOriginalSegment, newOriginalRef, newOriginalData) =
+          _copyMessage(arena, segmentId, defaultRef, ref);
+      segmentId = newOriginalSegment;
+      ref = newOriginalRef;
+      data = newOriginalData;
+    }
+
+    switch (_followBuilderFars(arena, segmentId, ref, data)) {
+      case Ok(value: (final newSegmentId, final newRef, final newData)):
+        segmentId = newSegmentId;
+        ref = newRef;
+        data = newData;
+      case Err(:final error):
+        return Err(error);
+    }
+
+    if (ref.kind != WirePointerKind.list) {
+      return const Err(ExistingPointerIsNotAListCapnpError());
+    }
+    if (ref.listElementSize != ElementSize.byte) {
+      return const Err(ExistingListPointerIsNotByteSizedCapnpError());
+    }
+
+    return Ok(data.offsetBytes(0, ref.listElementCount));
+  }
+
   void setData(ByteData value) {
     final (_, data) = _initDataPointer(value.lengthInBytes);
     assert(value.lengthInBytes == data.lengthInBytes);

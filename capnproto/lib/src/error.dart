@@ -175,6 +175,10 @@ class MessageContainsListPointerOfNonBytesWhereDataWasExpectedCapnpError
   const MessageContainsListPointerOfNonBytesWhereDataWasExpectedCapnpError();
 }
 
+class ExistingListPointerIsNotByteSizedCapnpError extends CapnpError {
+  const ExistingListPointerIsNotByteSizedCapnpError();
+}
+
 // Capability
 
 class CannotCreateACanonicalMessageWithACapabilityCapnpError
