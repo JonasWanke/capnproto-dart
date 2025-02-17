@@ -3,6 +3,8 @@ import 'dart:typed_data';
 import '../capnproto.dart';
 
 extension ByteDataCapnp on ByteData {
+  Uint8List get asUint8List => buffer.asUint8List(offsetInBytes, lengthInBytes);
+
   ByteData offsetBytes(int byteCount, [int? lengthBytes]) {
     assert(
       lengthBytes == null || lengthBytes >= 0 && lengthBytes <= lengthInBytes,

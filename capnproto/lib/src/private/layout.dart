@@ -864,6 +864,13 @@ final class PointerReader extends CapnpReader {
 
     return Ok(data.offsetBytes(0, size).asUnmodifiableView());
   }
+
+  @override
+  CapnpResult<void> setPointerBuilder(
+    PointerBuilder builder, {
+    bool canonicalize = false,
+  }) =>
+      builder.set(this, canonicalize: canonicalize);
 }
 
 final class PointerBuilder extends CapnpBuilder<PointerReader> {
@@ -2287,6 +2294,13 @@ final class StructReader extends CapnpReader {
       nestingLimit: nestingLimit,
     );
   }
+
+  @override
+  CapnpResult<void> setPointerBuilder(
+    PointerBuilder builder, {
+    bool canonicalize = false,
+  }) =>
+      builder.setStruct(this, canonicalize: canonicalize);
 }
 
 final class StructBuilder extends CapnpBuilder<StructReader> {
@@ -2543,6 +2557,13 @@ final class ListReader extends CapnpReader {
       nestingLimit: nestingLimit,
     );
   }
+
+  @override
+  CapnpResult<void> setPointerBuilder(
+    PointerBuilder builder, {
+    bool canonicalize = false,
+  }) =>
+      builder.setList(this, canonicalize: canonicalize);
 }
 
 final class ListBuilder extends CapnpBuilder<ListReader> {

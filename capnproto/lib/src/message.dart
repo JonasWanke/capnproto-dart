@@ -121,11 +121,18 @@ class MessageBuilder {
       _getRootInternal().initAsListOf(fromPointer, length);
 
   /// Gets the root, interpreting it as the given type.
+  @useResult
   CapnpResult<B> getRoot<B extends CapnpBuilder<R>, R extends CapnpReader>(
     FromPointerBuilder<B, R> fromPointer,
   ) =>
       _getRootInternal().getAs(fromPointer);
 
+  /// Sets the root to a deep copy of the given value.
+  @useResult
+  CapnpResult<void> setRoot(SetterInput value) =>
+      _getRootInternal().setAs(value);
+
+  @useResult
   CapnpResult<R>
       getRootAsReader<B extends CapnpBuilder<R>, R extends CapnpReader>(
     FromPointerReader<R> fromPointer,

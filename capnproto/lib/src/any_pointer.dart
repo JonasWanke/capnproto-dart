@@ -12,6 +12,13 @@ final class AnyPointerReader extends CapnpReader {
     FromPointerReader<R> fromPointer,
   ) =>
       fromPointer(reader, null);
+
+  @override
+  CapnpResult<void> setPointerBuilder(
+    PointerBuilder builder, {
+    bool canonicalize = false,
+  }) =>
+      reader.setPointerBuilder(builder, canonicalize: canonicalize);
 }
 
 final class AnyPointerBuilder extends CapnpBuilder<AnyPointerReader> {
@@ -26,6 +33,7 @@ final class AnyPointerBuilder extends CapnpBuilder<AnyPointerReader> {
     FromPointerBuilder<B, R> fromPointer,
   ) =>
       fromPointer.getFromPointer(builder, null);
+
   B initAs<B extends CapnpBuilder<R>, R extends CapnpReader>(
     FromPointerBuilder<B, R> fromPointer,
   ) =>
@@ -36,5 +44,8 @@ final class AnyPointerBuilder extends CapnpBuilder<AnyPointerReader> {
   ) =>
       fromPointer.initPointer(builder, length);
 
-  // TODO(JonasWanke): setAs(…)
+  CapnpResult<void> setAs(SetterInput value) =>
+      value.setPointerBuilder(builder);
+
+  void clear() => builder.clear();
 }
