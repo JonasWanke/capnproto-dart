@@ -2329,9 +2329,7 @@ final class StructReader extends CapnpReader {
     assert(index >= 0);
     if (index >= dataBits) return mask;
 
-    final byte = data.getInt8(index ~/ CapnpConstants.bitsPerByte);
-    final value = byte & (1 << (index % CapnpConstants.bitsPerByte)) != 0;
-    return value ^ mask;
+    return data.getBool(index) ^ mask;
   }
 
   // Integers
@@ -2472,16 +2470,16 @@ final class StructBuilder extends CapnpBuilder<StructReader> {
     );
   }
 
+// ignore: avoid_positional_boolean_parameters
+  bool getBool(int index, bool mask) {
+    assert(index >= 0);
+    return data.getBool(index) ^ mask;
+  }
+
   // ignore: avoid_positional_boolean_parameters
   void setBool(int index, bool value, bool mask) {
     assert(index >= 0);
-    final byteIndex = index ~/ CapnpConstants.bitsPerByte;
-    final bitIndex = index % CapnpConstants.bitsPerByte;
-    final byte = data.getInt8(byteIndex);
-    data.setInt8(
-      byteIndex,
-      (byte & ~(1 << bitIndex)) | (value ^ mask ? 1 << bitIndex : 0),
-    );
+    data.setBool(index, value ^ mask);
   }
 
   // Integers
@@ -2758,8 +2756,8 @@ final class ListReader extends CapnpReader {
       segmentId,
       WirePointer.fromOffset(
         data,
-        index * stepBits ~/ CapnpConstants.bitsPerWord +
-            structDataSizeBits ~/ CapnpConstants.bitsPerWord,
+        structDataSizeBits ~/ CapnpConstants.bitsPerWord +
+            index * stepBits ~/ CapnpConstants.bitsPerWord,
       ),
       nestingLimit: nestingLimit,
     );
@@ -2840,6 +2838,20 @@ final class ListBuilder extends CapnpBuilder<ListReader> {
       pointers: data.buffer.asByteData(
         data.offsetInBytes + indexByte + structDataLength,
         structPointerCount * CapnpConstants.bytesPerPointer,
+      ),
+    );
+  }
+
+  PointerBuilder getPointerElement(int index) {
+    assert(0 <= index && index < length);
+
+    return PointerBuilder._(
+      arena,
+      segmentId,
+      WirePointer.fromOffset(
+        data,
+        structDataSizeBits ~/ CapnpConstants.bitsPerWord +
+            index * stepBits ~/ CapnpConstants.bitsPerWord,
       ),
     );
   }

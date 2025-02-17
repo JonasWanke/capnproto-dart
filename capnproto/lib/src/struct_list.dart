@@ -1,12 +1,14 @@
 import 'dart:typed_data';
 
+import 'package:meta/meta.dart';
+
 import 'error.dart';
 import 'message.dart';
 import 'private/layout.dart';
 import 'reader_builder.dart';
 
-class StructListReader<R extends CapnpReader> extends Iterable<R> {
-  const StructListReader(this.reader, this.fromStruct);
+class StructListReader<R extends CapnpReader> extends CapnpListReader<R> {
+  const StructListReader(super.reader, this.fromStruct);
 
   static CapnpResult<StructListReader<R>> fromPointer<R extends CapnpReader>(
     PointerReader reader,
@@ -21,33 +23,17 @@ class StructListReader<R extends CapnpReader> extends Iterable<R> {
         .map((it) => StructListReader(it, fromStruct));
   }
 
-  final ListReader reader;
   final FromStructReader<R> fromStruct;
 
   @override
-  Iterator<R> get iterator =>
-      Iterable.generate(length, (index) => this[index]).iterator;
-
-  @override
-  int get length => reader.length;
-  @override
-  bool get isEmpty => length == 0;
-
-  @override
-  R get last {
-    if (isEmpty) throw StateError('No element');
-    return this[length - 1];
-  }
-
   R operator [](int index) => fromStruct(reader.getStructElement(index));
-  @override
-  R elementAt(int index) => this[index];
 }
 
-class StructListBuilder<B extends CapnpBuilder<R>, R extends CapnpReader>
-    extends Iterable<B> {
+class StructListBuilder<B extends CapnpStructBuilder<R>,
+        R extends CapnpStructReader>
+    extends CapnpListBuilder<B, StructListReader<R>> {
   StructListBuilder(
-    this.builder,
+    super.builder,
     this.fromStructBuilder,
     this.fromStructReader,
   );
@@ -66,8 +52,8 @@ class StructListBuilder<B extends CapnpBuilder<R>, R extends CapnpReader>
     );
   }
 
-  static CapnpResult<StructListBuilder<B, R>>
-      getFromPointer<B extends CapnpBuilder<R>, R extends CapnpReader>(
+  static CapnpResult<StructListBuilder<B, R>> getFromPointer<
+      B extends CapnpStructBuilder<R>, R extends CapnpStructReader>(
     PointerBuilder builder,
     StructSize structSize,
     FromStructBuilder<B, R> fromStructBuilder,
@@ -79,27 +65,27 @@ class StructListBuilder<B extends CapnpBuilder<R>, R extends CapnpReader>
         );
   }
 
-  final ListBuilder builder;
   final FromStructBuilder<B, R> fromStructBuilder;
   final FromStructReader<R> fromStructReader;
 
   @override
-  Iterator<B> get iterator =>
-      Iterable.generate(length, (index) => this[index]).iterator;
+  StructListReader<R> get asReader =>
+      StructListReader(builder.asReader, fromStructReader);
 
   @override
-  int get length => builder.length;
-  @override
-  bool get isEmpty => length == 0;
-
-  @override
-  B get last {
-    if (isEmpty) throw StateError('No element');
-    return this[length - 1];
-  }
-
   B operator [](int index) =>
       fromStructBuilder(builder.getStructElement(index));
   @override
-  B elementAt(int index) => this[index];
+  void operator []=(int index, B value) =>
+      throw UnsupportedError('Use `setWithCaveats(…)` instead.');
+
+  /// Sets the list element, with the following limitation based on the fact
+  /// that structs in a struct list are allocated inline: If the source struct
+  /// is larger than the target struct (as can happen if it was created with a
+  /// newer version of the schema), then it will be truncated, losing fields.
+  @useResult
+  CapnpResult<void> setWithCaveats(int index, R value) {
+    assert(0 <= index && index < length);
+    return builder.getStructElement(index).copyContentFrom(value.reader);
+  }
 }

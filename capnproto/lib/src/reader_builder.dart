@@ -1,10 +1,11 @@
+import 'dart:collection';
 import 'dart:typed_data';
 
 import 'package:oxidized/oxidized.dart';
 
 import '../capnproto.dart';
 
-abstract base class SetterInput {
+abstract interface class SetterInput {
   const SetterInput();
 
   factory SetterInput.text(String value) {
@@ -44,11 +45,11 @@ final class _FunctionSetterInput extends SetterInput {
       function(builder, canonicalize: canonicalize);
 }
 
-abstract base class CapnpReader implements SetterInput {
+abstract class CapnpReader implements SetterInput {
   const CapnpReader();
 }
 
-abstract base class CapnpBuilder<R extends CapnpReader> {
+abstract class CapnpBuilder<R extends CapnpReader> {
   const CapnpBuilder();
 
   R get asReader;
@@ -57,7 +58,7 @@ abstract base class CapnpBuilder<R extends CapnpReader> {
 // Struct
 
 // TODO(JonasWanke): better names to differentiate against `StructReader`
-abstract base class CapnpStructReader extends CapnpReader {
+abstract class CapnpStructReader extends CapnpReader {
   const CapnpStructReader(this.reader);
 
   final StructReader reader;
@@ -70,7 +71,7 @@ abstract base class CapnpStructReader extends CapnpReader {
       reader.setPointerBuilder(builder, canonicalize: canonicalize);
 }
 
-abstract base class CapnpStructBuilder<R extends CapnpStructReader>
+abstract class CapnpStructBuilder<R extends CapnpStructReader>
     extends CapnpBuilder<R> {
   const CapnpStructBuilder(this.builder);
 
@@ -78,4 +79,46 @@ abstract base class CapnpStructBuilder<R extends CapnpStructReader>
 
   @override
   R get asReader;
+}
+
+// List
+
+abstract class CapnpListReader<R> extends ListBase<R> implements CapnpReader {
+  const CapnpListReader(this.reader);
+
+  final ListReader reader;
+
+  @override
+  int get length => reader.length;
+  @override
+  set length(int newLength) =>
+      throw UnsupportedError('This list is read-only.');
+
+  @override
+  void operator []=(int index, R value) =>
+      throw UnsupportedError('This list is read-only.');
+
+  @override
+  CapnpResult<void> setPointerBuilder(
+    PointerBuilder builder, {
+    bool canonicalize = false,
+  }) =>
+      reader.setPointerBuilder(builder, canonicalize: canonicalize);
+}
+
+abstract class CapnpListBuilder<B, ListOfR extends CapnpListReader<Object?>>
+    extends ListBase<B> implements CapnpBuilder<ListOfR> {
+  const CapnpListBuilder(this.builder);
+
+  final ListBuilder builder;
+
+  @override
+  int get length => builder.length;
+  @override
+  // ignore: avoid_setters_without_getters
+  set length(int newLength) {
+    throw UnsupportedError(
+      "The length of a Cap'n Proto list can't be changed.",
+    );
+  }
 }
