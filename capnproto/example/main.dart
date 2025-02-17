@@ -5,6 +5,10 @@ import 'dart:io';
 import 'package:capnproto/capnproto.dart';
 
 Future<void> main(List<String> args) async {
+  args = [
+    '../../capnproto-rust/example/addressbook/data.capnp',
+    '../output.capnp',
+  ];
   final readFile = File(args[0]);
   final writeFile = File(args[1]);
 
@@ -50,23 +54,21 @@ Future<void> _writeAddressBookTo(File file) async {
 
 // Person
 
-final class Person_Reader extends CapnpReader {
-  const Person_Reader(this.reader);
-
-  final StructReader reader;
+final class Person_Reader extends CapnpStructReader {
+  const Person_Reader(super.reader);
 
   int get id => reader.getUInt32(0, 0);
 
-  bool get hasName => !reader.getPointerField(0).isNull;
-  String get name => reader.getPointerField(0).getText(null).unwrap();
+  bool get hasName => !reader.getPointer(0).isNull;
+  String get name => reader.getPointer(0).getText(null).unwrap();
 
-  bool get hasEmail => !reader.getPointerField(1).isNull;
-  String get email => reader.getPointerField(1).getText(null).unwrap();
+  bool get hasEmail => !reader.getPointer(1).isNull;
+  String get email => reader.getPointer(1).getText(null).unwrap();
 
-  bool get hasPhones => !reader.getPointerField(2).isNull;
+  bool get hasPhones => !reader.getPointer(2).isNull;
   StructListReader<Person_PhoneNumber_Reader> get phones {
     return StructListReader.fromPointer(
-      reader.getPointerField(2),
+      reader.getPointer(2),
       Person_PhoneNumber_Reader.new,
       null,
     ).unwrap();
@@ -81,20 +83,17 @@ final class Person_Reader extends CapnpReader {
   }
 }
 
-final class Person_Builder extends CapnpBuilder<Person_Reader> {
-  const Person_Builder(this.builder);
+final class Person_Builder extends CapnpStructBuilder<Person_Reader> {
+  const Person_Builder(super.builder);
 
   static const structSize = StructSize(dataWords: 1, pointerCount: 4);
 
   static final fromPointer = FromPointerBuilder(
     initPointer: (builder, length) =>
         Person_Builder(builder.initStruct(structSize)),
-    getFromPointer: (builder, defaultValue) => builder
-        .getStructBuilder(structSize, defaultValue)
-        .map(Person_Builder.new),
+    getFromPointer: (builder, defaultValue) =>
+        builder.getStruct(structSize, defaultValue).map(Person_Builder.new),
   );
-
-  final StructBuilder builder;
 
   @override
   Person_Reader get asReader => Person_Reader(builder.asReader);
@@ -138,13 +137,11 @@ final class Person_Builder extends CapnpBuilder<Person_Reader> {
 
 // Person.PhoneNumber
 
-final class Person_PhoneNumber_Reader extends CapnpReader {
-  const Person_PhoneNumber_Reader(this.reader);
+final class Person_PhoneNumber_Reader extends CapnpStructReader {
+  const Person_PhoneNumber_Reader(super.reader);
 
-  final StructReader reader;
-
-  bool get hasNumber => !reader.getPointerField(0).isNull;
-  String get number => reader.getPointerField(0).getText(null).unwrap();
+  bool get hasNumber => !reader.getPointer(0).isNull;
+  String get number => reader.getPointer(0).getText(null).unwrap();
 
   Person_PhoneNumber_Type get type =>
       Person_PhoneNumber_Type.fromValue(reader.getUInt16(0, 0));
@@ -154,8 +151,8 @@ final class Person_PhoneNumber_Reader extends CapnpReader {
 }
 
 final class Person_PhoneNumber_Builder
-    extends CapnpBuilder<Person_PhoneNumber_Reader> {
-  const Person_PhoneNumber_Builder(this.builder);
+    extends CapnpStructBuilder<Person_PhoneNumber_Reader> {
+  const Person_PhoneNumber_Builder(super.builder);
 
   static const structSize = StructSize(dataWords: 1, pointerCount: 1);
 
@@ -163,11 +160,9 @@ final class Person_PhoneNumber_Builder
     initPointer: (builder, length) =>
         Person_PhoneNumber_Builder(builder.initStruct(structSize)),
     getFromPointer: (builder, defaultValue) => builder
-        .getStructBuilder(structSize, defaultValue)
+        .getStruct(structSize, defaultValue)
         .map(Person_PhoneNumber_Builder.new),
   );
-
-  final StructBuilder builder;
 
   @override
   Person_PhoneNumber_Reader get asReader =>
@@ -209,23 +204,21 @@ enum Person_PhoneNumber_Type {
 
 // Person.Employment
 
-final class Person_Employment_Reader extends CapnpReader {
-  const Person_Employment_Reader(this.reader);
-
-  final StructReader reader;
+final class Person_Employment_Reader extends CapnpStructReader {
+  const Person_Employment_Reader(super.reader);
 
   bool get hasEmployer =>
-      reader.getUInt16(2, 0) == 1 && !reader.getPointerField(3).isNull;
+      reader.getUInt16(2, 0) == 1 && !reader.getPointer(3).isNull;
   bool get hasSchool =>
-      reader.getUInt16(2, 0) == 2 && !reader.getPointerField(3).isNull;
+      reader.getUInt16(2, 0) == 2 && !reader.getPointer(3).isNull;
 
   Person_Employment_Which_Reader get which {
     return switch (reader.getUInt16(2, 0)) {
-      0 => const Person_Employment_Which_Unemployed_Reader(),
+      0 => Person_Employment_Which_Unemployed_Reader(reader),
       1 => Person_Employment_Which_Employer_Reader(reader),
       2 => Person_Employment_Which_School_Reader(reader),
-      3 => const Person_Employment_Which_SelfEmployed_Reader(),
-      _ => const Person_Employment_Which_NotInSchema_Reader(),
+      3 => Person_Employment_Which_SelfEmployed_Reader(reader),
+      _ => Person_Employment_Which_NotInSchema_Reader(reader),
     };
   }
 
@@ -234,8 +227,8 @@ final class Person_Employment_Reader extends CapnpReader {
 }
 
 final class Person_Employment_Builder
-    extends CapnpBuilder<Person_Employment_Reader> {
-  const Person_Employment_Builder(this.builder);
+    extends CapnpStructBuilder<Person_Employment_Reader> {
+  const Person_Employment_Builder(super.builder);
 
   static const structSize = StructSize(dataWords: 1, pointerCount: 4);
 
@@ -243,11 +236,9 @@ final class Person_Employment_Builder
     initPointer: (builder, length) =>
         Person_Employment_Builder(builder.initStruct(structSize)),
     getFromPointer: (builder, defaultValue) => builder
-        .getStructBuilder(structSize, defaultValue)
+        .getStruct(structSize, defaultValue)
         .map(Person_Employment_Builder.new),
   );
-
-  final StructBuilder builder;
 
   @override
   Person_Employment_Reader get asReader =>
@@ -273,13 +264,13 @@ final class Person_Employment_Builder
   // TODO(JonasWanke): figure out `which` getter with strings
 }
 
-sealed class Person_Employment_Which_Reader extends CapnpReader {
-  const Person_Employment_Which_Reader();
+sealed class Person_Employment_Which_Reader extends CapnpStructReader {
+  const Person_Employment_Which_Reader(super.reader);
 }
 
 final class Person_Employment_Which_Unemployed_Reader
     extends Person_Employment_Which_Reader {
-  const Person_Employment_Which_Unemployed_Reader();
+  const Person_Employment_Which_Unemployed_Reader(super.reader);
 
   @override
   String toString() => '(unemployed = void)';
@@ -287,11 +278,9 @@ final class Person_Employment_Which_Unemployed_Reader
 
 final class Person_Employment_Which_Employer_Reader
     extends Person_Employment_Which_Reader {
-  const Person_Employment_Which_Employer_Reader(this.reader);
+  const Person_Employment_Which_Employer_Reader(super.reader);
 
-  final StructReader reader;
-
-  String get value => reader.getPointerField(3).getText(null).unwrap();
+  String get value => reader.getPointer(3).getText(null).unwrap();
 
   @override
   String toString() => '(employer = $value)';
@@ -299,11 +288,9 @@ final class Person_Employment_Which_Employer_Reader
 
 final class Person_Employment_Which_School_Reader
     extends Person_Employment_Which_Reader {
-  const Person_Employment_Which_School_Reader(this.reader);
+  const Person_Employment_Which_School_Reader(super.reader);
 
-  final StructReader reader;
-
-  String get value => reader.getPointerField(3).getText(null).unwrap();
+  String get value => reader.getPointer(3).getText(null).unwrap();
 
   @override
   String toString() => '(school = $value)';
@@ -311,7 +298,7 @@ final class Person_Employment_Which_School_Reader
 
 final class Person_Employment_Which_SelfEmployed_Reader
     extends Person_Employment_Which_Reader {
-  const Person_Employment_Which_SelfEmployed_Reader();
+  const Person_Employment_Which_SelfEmployed_Reader(super.reader);
 
   @override
   String toString() => '(selfEmployed = void)';
@@ -319,7 +306,7 @@ final class Person_Employment_Which_SelfEmployed_Reader
 
 final class Person_Employment_Which_NotInSchema_Reader
     extends Person_Employment_Which_Reader {
-  const Person_Employment_Which_NotInSchema_Reader();
+  const Person_Employment_Which_NotInSchema_Reader(super.reader);
 
   @override
   String toString() => '<not in schema>';
@@ -327,15 +314,13 @@ final class Person_Employment_Which_NotInSchema_Reader
 
 // AddressBook
 
-final class AddressBook_Reader extends CapnpReader {
-  const AddressBook_Reader(this.reader);
+final class AddressBook_Reader extends CapnpStructReader {
+  const AddressBook_Reader(super.reader);
 
-  final StructReader reader;
-
-  bool get hasPeople => !reader.getPointerField(0).isNull;
+  bool get hasPeople => !reader.getPointer(0).isNull;
   StructListReader<Person_Reader> get people {
     return StructListReader.fromPointer(
-      reader.getPointerField(0),
+      reader.getPointer(0),
       Person_Reader.new,
       null,
     ).unwrap();
@@ -345,8 +330,8 @@ final class AddressBook_Reader extends CapnpReader {
   String toString() => '(people = $people)';
 }
 
-final class AddressBook_Builder extends CapnpBuilder<AddressBook_Reader> {
-  const AddressBook_Builder(this.builder);
+final class AddressBook_Builder extends CapnpStructBuilder<AddressBook_Reader> {
+  const AddressBook_Builder(super.builder);
 
   static const structSize = StructSize(dataWords: 0, pointerCount: 1);
 
@@ -354,11 +339,9 @@ final class AddressBook_Builder extends CapnpBuilder<AddressBook_Reader> {
     initPointer: (builder, length) =>
         AddressBook_Builder(builder.initStruct(structSize)),
     getFromPointer: (builder, defaultValue) => builder
-        .getStructBuilder(structSize, defaultValue)
+        .getStruct(structSize, defaultValue)
         .map(AddressBook_Builder.new),
   );
-
-  final StructBuilder builder;
 
   @override
   AddressBook_Reader get asReader => AddressBook_Reader(builder.asReader);
