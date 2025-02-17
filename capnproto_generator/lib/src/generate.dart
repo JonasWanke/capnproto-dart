@@ -293,6 +293,8 @@ class FileGenerator {
           );
         }
 
+        final defaultName = '_default${name.uppercaseFirst()}';
+
         switch ((slot.type.which, slot.defaultValue.which)) {
           case (Type_Which_Void_Reader(), Value_Which_Void_Reader()):
             _buffer.writeln('void get $name {}');
@@ -429,10 +431,22 @@ class FileGenerator {
             // FIXME
             // throw UnimplementedError();
             break;
-          case (Type_Which_Struct_Reader(), Value_Which_Struct_Reader()):
-            // FIXME
-            // throw UnimplementedError();
-            break;
+          case (
+              Type_Which_Struct_Reader(:final typeId),
+              Value_Which_Struct_Reader(:final value),
+            ):
+            generateHas();
+
+            if (slot.hadExplicitDefault) {
+              generateConstant(defaultName, value, _buffer).unwrap();
+            }
+            final type = context.nodeImportsAndNames[typeId]!;
+            final typeString = _imports.import(type.importUri, type.name);
+            _buffer.writeln(
+              '${typeString}_Reader get $name => '
+              // ignore: lines_longer_than_80_chars
+              '${typeString}_Reader(reader.getPointer(${slot.offset}).getStruct(${slot.hadExplicitDefault ? defaultName : null}).unwrap());',
+            );
           case (Type_Which_Interface_Reader(), Value_Which_Interface_Reader()):
             // FIXME
             // throw UnimplementedError();
