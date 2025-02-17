@@ -74,6 +74,10 @@ class MessageContainsNonStructPointerWhereStructPointerWasExpectedCapnpError
   const MessageContainsNonStructPointerWhereStructPointerWasExpectedCapnpError();
 }
 
+class StructReaderHadBitwidthOtherThan1CapnpError extends CapnpError {
+  const StructReaderHadBitwidthOtherThan1CapnpError();
+}
+
 // List
 
 class NestingLimitExceededCapnpError extends CapnpError {
@@ -159,4 +163,11 @@ class MessageContainsNonListPointerWhereDataWasExpectedCapnpError
 class MessageContainsListPointerOfNonBytesWhereDataWasExpectedCapnpError
     extends CapnpError {
   const MessageContainsListPointerOfNonBytesWhereDataWasExpectedCapnpError();
+}
+
+// Capability
+
+class CannotCreateACanonicalMessageWithACapabilityCapnpError
+    extends CapnpError {
+  const CannotCreateACanonicalMessageWithACapabilityCapnpError();
 }

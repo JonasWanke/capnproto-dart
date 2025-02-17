@@ -560,6 +560,7 @@ final class PointerReader extends CapnpReader {
         arena,
         segmentId,
         data: data.offsetWords(0, reff.structDataSize),
+        dataBits: reff.structDataSize * CapnpConstants.bitsPerWord,
         pointers:
             data.offsetWords(reff.structDataSize, reff.structPointerCount),
         nestingLimit: nestingLimit - 1,
@@ -899,28 +900,7 @@ final class PointerBuilder extends CapnpBuilder<PointerReader> {
     );
   }
 
-  StructBuilder initStruct(StructSize size) {
-    final (segmentId, reff, data) = _allocate(
-      arena,
-      this.segmentId,
-      pointer,
-      size.totalWords,
-      WirePointerKind.struct,
-    );
-    reff.structSize = size;
-
-    return StructBuilder._(
-      arena,
-      segmentId,
-      data: data.offsetWords(0, size.dataWords),
-      pointers: data.offsetWords(
-        size.dataWords,
-        size.pointerCount * CapnpConstants.wordsPerPointer,
-      ),
-    );
-  }
-
-  CapnpResult<StructBuilder> getStructBuilder(
+  CapnpResult<StructBuilder> getStruct(
     StructSize size,
     ByteData? defaultValue,
   ) {
@@ -1017,6 +997,100 @@ final class PointerBuilder extends CapnpBuilder<PointerReader> {
     );
   }
 
+  StructBuilder initStruct(StructSize size) {
+    final (segmentId, reff, data) = _allocate(
+      arena,
+      this.segmentId,
+      pointer,
+      size.totalWords,
+      WirePointerKind.struct,
+    );
+    reff.structSize = size;
+
+    return StructBuilder._(
+      arena,
+      segmentId,
+      data: data.offsetWords(0, size.dataWords),
+      pointers: data.offsetWords(
+        size.dataWords,
+        size.pointerCount * CapnpConstants.wordsPerPointer,
+      ),
+    );
+  }
+
+  CapnpResult<void> setStruct(
+    StructReader value, {
+    bool canonicalize = false,
+  }) {
+    var dataSize = _roundBitsUpToBytes(value.dataBits);
+    var pointerCount = value.pointerCount;
+
+    if (canonicalize) {
+      // StructReaders should not have bit widths other than 1, but let's be
+      // safe.
+      if (!(value.dataBits == 1 ||
+          value.dataBits % CapnpConstants.bitsPerByte == 0)) {
+        return const Err(StructReaderHadBitwidthOtherThan1CapnpError());
+      }
+
+      if (value.dataBits == 1) {
+        if (!value.getBool(0, false)) {
+          dataSize = 0;
+        }
+      } else {
+        while (dataSize != 0) {
+          final end = dataSize;
+          var window = dataSize % CapnpConstants.bytesPerWord;
+          if (window == 0) window = CapnpConstants.bytesPerWord;
+
+          final start = end - window;
+          final lastWord = value.data.buffer
+              .asUint8List(value.data.offsetInBytes + start, window);
+          if (lastWord.any((byte) => byte != 0)) break;
+
+          dataSize -= window;
+        }
+      }
+
+      while (pointerCount != 0 && value.getPointer(pointerCount - 1).isNull) {
+        pointerCount--;
+      }
+    }
+
+    final dataWords = _roundBytesUpToWords(dataSize);
+    final totalSize = dataWords + pointerCount * CapnpConstants.wordsPerPointer;
+
+    final (segmentId, ref, data) = _allocate(
+      arena,
+      this.segmentId,
+      pointer,
+      totalSize,
+      WirePointerKind.struct,
+    );
+    ref.structSize =
+        StructSize(dataWords: dataWords, pointerCount: pointerCount);
+
+    if (value.dataBits == 1) {
+      // Data size could be made 0 by truncation
+      if (dataSize != 0) {
+        data.setUint8(0, value.getBool(0, false) ? 1 : 0);
+      }
+    } else {
+      value.data.copyBytesTo(data, dataSize);
+    }
+
+    for (var i = 0; i < pointerCount; i++) {
+      final result = PointerBuilder._(
+        arena,
+        segmentId,
+        WirePointer.fromOffset(data, dataWords),
+      ).set(value.getPointer(i), canonicalize: canonicalize);
+      if (result case Err(:final error)) return Err(error);
+    }
+
+    return const Ok(null);
+  }
+
   ListBuilder initList(int length, ElementSize elementSize) {
     assert(
       elementSize != ElementSize.inlineComposite,
@@ -1047,6 +1121,153 @@ final class PointerBuilder extends CapnpBuilder<PointerReader> {
       structDataSizeBits: dataSize,
       structPointerCount: pointerCount,
     );
+  }
+
+  @useResult
+  CapnpResult<void> setList(ListReader source, {bool canonicalize = false}) {
+    var totalSize = _roundBitsUpToWords(source.length * source.stepBits);
+
+    if (source.elementSize != ElementSize.inlineComposite) {
+      // List of non-structs.
+      final (segmentId, ref, data) = _allocate(
+        arena,
+        this.segmentId,
+        pointer,
+        totalSize,
+        WirePointerKind.list,
+      );
+
+      if (source.structPointerCount == 1) {
+        // List of pointers.
+        ref.setListSizeAndCount(ElementSize.pointer, source.length);
+        for (var i = 0; i < source.length; i++) {
+          final result = PointerBuilder._(
+            arena,
+            segmentId,
+            WirePointer.fromOffset(data, i * CapnpConstants.wordsPerPointer),
+          ).set(source.getPointerElement(i), canonicalize: canonicalize);
+          if (result case Err(:final error)) return Err(error);
+        }
+      } else {
+        // List of data.
+        final elementSize = switch (source.stepBits) {
+          0 => ElementSize.void_,
+          1 => ElementSize.bit,
+          8 => ElementSize.byte,
+          16 => ElementSize.twoBytes,
+          32 => ElementSize.fourBytes,
+          64 => ElementSize.eightBytes,
+          _ => throw ArgumentError(
+              'Invalid list step size: ${source.stepBits} bits',
+            ),
+        };
+
+        ref.setListSizeAndCount(elementSize, source.length);
+
+        // Be careful to avoid copying any bytes past the end of the list.
+        final wholeBytes =
+            source.length * source.stepBits ~/ CapnpConstants.bitsPerByte;
+        source.data.copyBytesTo(data, wholeBytes);
+
+        final leftoverBits =
+            source.length * source.stepBits % CapnpConstants.bitsPerByte;
+        if (leftoverBits > 0) {
+          final mask = (1 << leftoverBits) - 1;
+          data.setUint8(wholeBytes, mask & source.data.getUint8(wholeBytes));
+        }
+      }
+    } else {
+      // List of structs.
+      final declDataWords =
+          source.structDataSizeBits ~/ CapnpConstants.bitsPerWord;
+      final declPointerCount = source.structPointerCount;
+
+      var dataWords = 0;
+      var pointerCount = 0;
+
+      if (canonicalize) {
+        for (var i = 0; i < source.length; i++) {
+          final element = source.getStructElement(i);
+          var localDataWords = declDataWords;
+          while (localDataWords != 0) {
+            final end = localDataWords * CapnpConstants.bytesPerWord;
+            const window = CapnpConstants.bytesPerWord;
+            final start = end - window;
+
+            final lastWord = element.data.buffer.asUint8List(
+              element.data.offsetInBytes + start,
+              window,
+            );
+            if (lastWord.any((byte) => byte != 0)) break;
+
+            localDataWords--;
+          }
+          if (localDataWords > dataWords) dataWords = localDataWords;
+
+          var localPointerCount = declPointerCount;
+          while (localPointerCount != 0 &&
+              element.getPointer(localPointerCount - 1).isNull) {
+            localPointerCount--;
+          }
+          if (localPointerCount > pointerCount) {
+            pointerCount = localPointerCount;
+          }
+        }
+        totalSize = (dataWords + pointerCount) * source.length;
+      } else {
+        dataWords = declDataWords;
+        pointerCount = declPointerCount;
+      }
+
+      final declStructSizeWords = declDataWords + declPointerCount;
+      final structSizeWords = dataWords + pointerCount;
+
+      final (segmentId, ref, data) = _allocate(
+        arena,
+        this.segmentId,
+        pointer,
+        CapnpConstants.wordsPerPointer + totalSize,
+        WirePointerKind.list,
+      );
+      ref.listInlineCompositeWordCount = totalSize;
+
+      final tag = WirePointer.fromOffset(data, 0);
+      tag.setKindAndInlineCompositeListElementCount(
+        WirePointerKind.struct,
+        source.length,
+      );
+      tag.structSize =
+          StructSize(dataWords: dataWords, pointerCount: pointerCount);
+      final destination = data.offsetWords(1);
+
+      for (var i = 0; i < source.length; i++) {
+        source.data.offsetWords(i * declStructSizeWords).copyWordsTo(
+              destination.offsetWords(i * structSizeWords),
+              dataWords,
+            );
+
+        for (var j = 0; j < pointerCount; j++) {
+          final result = PointerBuilder._(
+            arena,
+            segmentId,
+            WirePointer.fromOffset(data, i * structSizeWords + j),
+          ).set(
+            PointerReader._(
+              source.arena,
+              source.segmentId,
+              WirePointer.fromOffset(
+                source.data,
+                i * declStructSizeWords + j,
+              ),
+              nestingLimit: source.nestingLimit,
+            ),
+            canonicalize: canonicalize,
+          );
+          if (result case Err(:final error)) return Err(error);
+        }
+      }
+    }
+    return const Ok(null);
   }
 
   ListBuilder initStructList(int length, StructSize structSize) {
@@ -1353,9 +1574,7 @@ final class PointerBuilder extends CapnpBuilder<PointerReader> {
     final bytes = const Utf8Encoder().convert(value);
     final (_, data) = _initTextPointer(bytes.length);
     assert(bytes.length == data.lengthInBytes);
-    data.buffer
-        .asUint8List(data.offsetInBytes, data.lengthInBytes)
-        .setRange(0, data.lengthInBytes, bytes);
+    data.asUint8List.setRange(0, data.lengthInBytes, bytes);
   }
 
   (SegmentId, ByteData) _initTextPointer(int size) {
@@ -1372,6 +1591,77 @@ final class PointerBuilder extends CapnpBuilder<PointerReader> {
     ref.setListSizeAndCount(ElementSize.byte, byteSize);
 
     return (segmentId, data.offsetBytes(0, size));
+  }
+
+  void setData(ByteData value) {
+    final (_, data) = _initDataPointer(value.lengthInBytes);
+    assert(value.lengthInBytes == data.lengthInBytes);
+    data.asUint8List.setRange(0, data.lengthInBytes, data.asUint8List);
+  }
+
+  (SegmentId, ByteData) _initDataPointer(int size) {
+    final (segmentId, ref, data) = _allocate(
+      arena,
+      this.segmentId,
+      pointer,
+      _roundBytesUpToWords(size),
+      WirePointerKind.list,
+    );
+
+    // Initialize the pointer.
+    ref.setListSizeAndCount(ElementSize.byte, size);
+
+    return (segmentId, data.offsetBytes(0, size));
+  }
+
+  @useResult
+  CapnpResult<void> set(
+    PointerReader source, {
+    bool canonicalize = false,
+  }) {
+    if (source.isNull) {
+      if (!isNull) clear();
+      return const Ok(null);
+    }
+
+    switch (source.pointer.kind) {
+      case WirePointerKind.struct:
+        return source
+            .getStruct(null)
+            .andThen((reader) => setStruct(reader, canonicalize: canonicalize));
+      case WirePointerKind.list:
+        return source
+            .getList(null)
+            .andThen((reader) => setList(reader, canonicalize: canonicalize));
+      case WirePointerKind.far:
+        return const Err(MalformedDoubleFarPointerCapnpError());
+      case WirePointerKind.other:
+        if (!source.pointer.isCapability) {
+          return const Err(UnknownPointerTypeCapnpError());
+        }
+        if (canonicalize) {
+          return const Err(
+            CannotCreateACanonicalMessageWithACapabilityCapnpError(),
+          );
+        }
+
+        throw UnimplementedError();
+      // match src_cap_table.extract_cap((*src).cap_index() as usize) {
+      //   Some(cap) => {
+      // ignore: lines_longer_than_80_chars
+      //     set_capability_pointer(dst_arena, dst_segment_id, dst_cap_table, dst, cap);
+      //     Ok(())
+      //   }
+      //   None => Err(Error::from_kind(
+      //     ErrorKind::MessageContainsInvalidCapabilityPointer,
+      //   )),
+      // }
+    }
+  }
+
+  void clear() {
+    _zeroObject(arena, pointer);
+    pointer.setNull();
   }
 
   @useResult
@@ -1859,14 +2149,16 @@ final class StructReader extends CapnpReader {
     this.arena,
     this.segmentId, {
     required this.data,
+    required this.dataBits,
     required this.pointers,
     required this.nestingLimit,
-  });
+  }) : assert(dataBits <= data.lengthInBytes * CapnpConstants.bitsPerByte);
 
   static final defaultReader = StructReader._(
     const NullArena(),
     SegmentId.zero,
     data: _emptyByteData,
+    dataBits: 0,
     pointers: _emptyByteData,
     nestingLimit: 0x7fffffff,
   );
@@ -1875,7 +2167,7 @@ final class StructReader extends CapnpReader {
   final SegmentId segmentId;
 
   final ByteData data;
-  int get dataSize => data.lengthInBytes;
+  final int dataBits;
 
   final ByteData pointers;
   int get pointerCount =>
@@ -1889,7 +2181,7 @@ final class StructReader extends CapnpReader {
   // ignore: avoid_positional_boolean_parameters
   bool getBool(int index, bool mask) {
     assert(index >= 0);
-    if (index > dataSize) return mask;
+    if (index >= dataBits) return mask;
 
     final byte = data.getInt8(index ~/ CapnpConstants.bitsPerByte);
     final value = byte & (1 << (index % CapnpConstants.bitsPerByte)) != 0;
@@ -1900,49 +2192,49 @@ final class StructReader extends CapnpReader {
 
   int getInt8(int index, int mask) {
     assert(index >= 0);
-    if (index > dataSize) return mask;
+    if (index * 8 >= dataBits) return mask;
     return data.getInt8(index) ^ mask;
   }
 
   int getUInt8(int index, int mask) {
     assert(index >= 0);
-    if (index > dataSize) return mask;
+    if (index * 8 >= dataBits) return mask;
     return data.getUint8(index) ^ mask;
   }
 
   int getInt16(int index, int mask) {
     assert(index >= 0);
-    if (index * 2 > dataSize) return mask;
+    if (index * 16 >= dataBits) return mask;
     return data.getInt16(index * 2, Endian.little) ^ mask;
   }
 
   int getUInt16(int index, int mask) {
     assert(index >= 0);
-    if (index * 2 > dataSize) return mask;
+    if (index * 16 >= dataBits) return mask;
     return data.getUint16(index * 2, Endian.little) ^ mask;
   }
 
   int getInt32(int index, int mask) {
     assert(index >= 0);
-    if (index * 4 > dataSize) return mask;
+    if (index * 32 >= dataBits) return mask;
     return data.getInt32(index * 4, Endian.little) ^ mask;
   }
 
   int getUInt32(int index, int mask) {
     assert(index >= 0);
-    if (index * 4 > dataSize) return mask;
+    if (index * 32 >= dataBits) return mask;
     return data.getUint32(index * 4, Endian.little) ^ mask;
   }
 
   int getInt64(int index, int mask) {
     assert(index >= 0);
-    if (index * 8 > dataSize) return mask;
+    if (index * 64 >= dataBits) return mask;
     return data.getInt64(index * 8, Endian.little) ^ mask;
   }
 
   int getUInt64(int index, int mask) {
     assert(index >= 0);
-    if (index * 8 > dataSize) return mask;
+    if (index * 64 >= dataBits) return mask;
     return data.getUint64(index * 8, Endian.little) ^ mask;
   }
 
@@ -1952,7 +2244,7 @@ final class StructReader extends CapnpReader {
 
   double getFloat32(int index, int mask) {
     assert(index >= 0);
-    final isOutOfBounds = index * 4 >= dataSize;
+    final isOutOfBounds = index * 32 >= dataBits;
     if (mask == 0) {
       if (isOutOfBounds) return 0;
       return data.getFloat32(index * 4, Endian.little);
@@ -1968,7 +2260,7 @@ final class StructReader extends CapnpReader {
 
   double getFloat64(int index, int mask) {
     assert(index >= 0);
-    final isOutOfBounds = index * 8 >= dataSize;
+    final isOutOfBounds = index * 64 >= dataBits;
     if (mask == 0) {
       if (isOutOfBounds) return 0;
       return data.getFloat64(index * 8, Endian.little);
@@ -1985,7 +2277,7 @@ final class StructReader extends CapnpReader {
 
   // Pointer
 
-  PointerReader getPointerField(int index) {
+  PointerReader getPointer(int index) {
     assert(index >= 0);
     if (index >= pointerCount) return PointerReader.defaultReader;
     return PointerReader._(
@@ -2021,6 +2313,7 @@ final class StructBuilder extends CapnpBuilder<StructReader> {
       arena,
       segmentId,
       data: data,
+      dataBits: dataSize * CapnpConstants.bitsPerByte,
       pointers: pointers,
       nestingLimit: 0x7fffffff,
     );
@@ -2227,11 +2520,27 @@ final class ListReader extends CapnpReader {
         data.offsetInBytes + indexByte,
         structDataLength,
       ),
+      dataBits: structDataSizeBits,
       pointers: data.buffer.asByteData(
         data.offsetInBytes + indexByte + structDataLength,
         structPointerCount * CapnpConstants.bytesPerPointer,
       ),
       nestingLimit: nestingLimit - 1,
+    );
+  }
+
+  PointerReader getPointerElement(int index) {
+    assert(0 <= index && index < length);
+
+    return PointerReader._(
+      arena,
+      segmentId,
+      WirePointer.fromOffset(
+        data,
+        index * stepBits ~/ CapnpConstants.bitsPerWord +
+            structDataSizeBits ~/ CapnpConstants.bitsPerWord,
+      ),
+      nestingLimit: nestingLimit,
     );
   }
 }
