@@ -262,12 +262,10 @@ class FileGenerator {
         _buffer.writeln('}');
 
       case Node_Which_Interface_Reader():
-        throw UnimplementedError();
+        _buffer.writeln('// TODO: codegen for interface');
 
       case Node_Which_Const_Reader():
-        // FIXME
-        // throw UnimplementedError();
-        break;
+        _buffer.writeln('// TODO: codegen for const');
 
       case Node_Which_Annotation_Reader():
         break;
@@ -397,7 +395,7 @@ class FileGenerator {
               Value_Which_Text_Reader(:final value),
             ):
             if (value != '') {
-              throw UnimplementedError('Support default values for Text');
+              _buffer.writeln('// TODO: codegen default value for text field');
             }
             generateHas();
             _buffer.writeln(
@@ -409,7 +407,7 @@ class FileGenerator {
               Value_Which_Data_Reader(:final value)
             ):
             if (value.lengthInBytes > 0) {
-              throw UnimplementedError('Support default values for Data');
+              _buffer.writeln('// TODO: codegen default value for data field');
             }
             generateHas();
             _buffer.writeln(
@@ -473,9 +471,9 @@ class FileGenerator {
                   '${_imports.dataListReader}.getFromPointer(reader.getPointer(${slot.offset}), $defaultValue).unwrap();',
                 );
               case Type_Which_List_Reader():
-                throw UnimplementedError();
+                _buffer.writeln('// TODO: codegen field of type list of list');
               case Type_Which_Enum_Reader():
-                throw UnimplementedError();
+                _buffer.writeln('// TODO: codegen field of type list of enum');
               case Type_Which_Struct_Reader(:final typeId):
                 final elementType = context.nodeImportsAndNames[typeId]!;
                 final elementTypeString =
@@ -492,9 +490,13 @@ class FileGenerator {
                 );
 
               case Type_Which_Interface_Reader():
-                throw UnimplementedError();
+                _buffer.writeln(
+                  '// TODO: codegen field of type list of interface',
+                );
               case Type_Which_AnyPointer_Reader():
-                throw UnimplementedError();
+                _buffer.writeln(
+                  '// TODO: codegen field of type list of AnyPointer',
+                );
               case Type_Which_NotInSchema_Reader():
                 throw UnsupportedError('Unknown list element type');
             }
@@ -503,9 +505,8 @@ class FileGenerator {
               Type_Which_Enum_Reader(),
               Value_Which_Enum_Reader(:final value),
             ):
-            // FIXME
-            // throw UnimplementedError();
-            break;
+            _buffer.writeln('// TODO: codegen for enum-typed field');
+
           case (
               Type_Which_Struct_Reader(:final typeId),
               Value_Which_Struct_Reader(:final value),
@@ -524,24 +525,20 @@ class FileGenerator {
             );
 
           case (Type_Which_Interface_Reader(), Value_Which_Interface_Reader()):
-            // FIXME
-            // throw UnimplementedError();
-            break;
+            _buffer.writeln('// TODO: codegen for interface-typed field');
+
           case (
               Type_Which_AnyPointer_Reader(),
               Value_Which_AnyPointer_Reader(),
             ):
-            // FIXME
-            // throw UnimplementedError();
-            break;
+            _buffer.writeln('// TODO: codegen for AnyPointer-typed field');
+
           default:
             throw ArgumentError("Field's type and default value don't match.");
         }
 
       case Field_Which_Group_Reader():
-        // FIXME
-        // throw UnimplementedError();
-        break;
+        _buffer.writeln('// TODO: codegen for group');
 
       case Field_Which_NotInSchema_Reader():
         throw UnsupportedError('Unknown field type');
