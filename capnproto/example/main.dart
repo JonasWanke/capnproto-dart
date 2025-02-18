@@ -54,7 +54,7 @@ Future<void> _writeAddressBookTo(File file) async {
 
 // Person
 
-final class Person_Reader extends CapnpStructReader {
+class Person_Reader extends CapnpStructReader {
   const Person_Reader(super.reader);
 
   int get id => reader.getUInt32(0, 0);
@@ -83,7 +83,7 @@ final class Person_Reader extends CapnpStructReader {
   }
 }
 
-final class Person_Builder extends CapnpStructBuilder<Person_Reader> {
+class Person_Builder extends CapnpStructBuilder<Person_Reader> {
   const Person_Builder(super.builder);
 
   static const structSize = StructSize(dataWords: 1, pointerCount: 4);
@@ -137,7 +137,7 @@ final class Person_Builder extends CapnpStructBuilder<Person_Reader> {
 
 // Person.PhoneNumber
 
-final class Person_PhoneNumber_Reader extends CapnpStructReader {
+class Person_PhoneNumber_Reader extends CapnpStructReader {
   const Person_PhoneNumber_Reader(super.reader);
 
   bool get hasNumber => !reader.getPointer(0).isNull;
@@ -150,7 +150,7 @@ final class Person_PhoneNumber_Reader extends CapnpStructReader {
   String toString() => '(number = $number, type = $type)';
 }
 
-final class Person_PhoneNumber_Builder
+class Person_PhoneNumber_Builder
     extends CapnpStructBuilder<Person_PhoneNumber_Reader> {
   const Person_PhoneNumber_Builder(super.builder);
 
@@ -204,7 +204,7 @@ enum Person_PhoneNumber_Type {
 
 // Person.Employment
 
-final class Person_Employment_Reader extends CapnpStructReader {
+class Person_Employment_Reader extends CapnpStructReader {
   const Person_Employment_Reader(super.reader);
 
   bool get hasEmployer =>
@@ -226,7 +226,7 @@ final class Person_Employment_Reader extends CapnpStructReader {
   String toString() => which.toString();
 }
 
-final class Person_Employment_Builder
+class Person_Employment_Builder
     extends CapnpStructBuilder<Person_Employment_Reader> {
   const Person_Employment_Builder(super.builder);
 
@@ -268,7 +268,7 @@ sealed class Person_Employment_Which_Reader extends CapnpStructReader {
   const Person_Employment_Which_Reader(super.reader);
 }
 
-final class Person_Employment_Which_Unemployed_Reader
+class Person_Employment_Which_Unemployed_Reader
     extends Person_Employment_Which_Reader {
   const Person_Employment_Which_Unemployed_Reader(super.reader);
 
@@ -276,7 +276,7 @@ final class Person_Employment_Which_Unemployed_Reader
   String toString() => '(unemployed = void)';
 }
 
-final class Person_Employment_Which_Employer_Reader
+class Person_Employment_Which_Employer_Reader
     extends Person_Employment_Which_Reader {
   const Person_Employment_Which_Employer_Reader(super.reader);
 
@@ -286,7 +286,7 @@ final class Person_Employment_Which_Employer_Reader
   String toString() => '(employer = $value)';
 }
 
-final class Person_Employment_Which_School_Reader
+class Person_Employment_Which_School_Reader
     extends Person_Employment_Which_Reader {
   const Person_Employment_Which_School_Reader(super.reader);
 
@@ -296,7 +296,7 @@ final class Person_Employment_Which_School_Reader
   String toString() => '(school = $value)';
 }
 
-final class Person_Employment_Which_SelfEmployed_Reader
+class Person_Employment_Which_SelfEmployed_Reader
     extends Person_Employment_Which_Reader {
   const Person_Employment_Which_SelfEmployed_Reader(super.reader);
 
@@ -304,7 +304,7 @@ final class Person_Employment_Which_SelfEmployed_Reader
   String toString() => '(selfEmployed = void)';
 }
 
-final class Person_Employment_Which_NotInSchema_Reader
+class Person_Employment_Which_NotInSchema_Reader
     extends Person_Employment_Which_Reader {
   const Person_Employment_Which_NotInSchema_Reader(super.reader);
 
@@ -314,7 +314,7 @@ final class Person_Employment_Which_NotInSchema_Reader
 
 // AddressBook
 
-final class AddressBook_Reader extends CapnpStructReader {
+class AddressBook_Reader extends CapnpStructReader {
   const AddressBook_Reader(super.reader);
 
   bool get hasPeople => !reader.getPointer(0).isNull;
@@ -330,7 +330,7 @@ final class AddressBook_Reader extends CapnpStructReader {
   String toString() => '(people = $people)';
 }
 
-final class AddressBook_Builder extends CapnpStructBuilder<AddressBook_Reader> {
+class AddressBook_Builder extends CapnpStructBuilder<AddressBook_Reader> {
   const AddressBook_Builder(super.builder);
 
   static const structSize = StructSize(dataWords: 0, pointerCount: 1);
