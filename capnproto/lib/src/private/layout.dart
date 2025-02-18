@@ -291,7 +291,6 @@ final class PointerReader extends CapnpReader {
     WirePointer.nullPointer,
     nestingLimit: 0x7fffffff,
   );
-
   static CapnpResult<PointerReader> getRoot(
     ReaderArena arena,
     SegmentId segmentId, {
@@ -312,6 +311,16 @@ final class PointerReader extends CapnpReader {
             nestingLimit: nestingLimit,
           ),
         );
+  }
+
+  // ignore: sort_constructors_first
+  factory PointerReader.getRootUnchecked(ByteData data) {
+    return PointerReader._(
+      const NullArena(),
+      SegmentId.zero,
+      WirePointer.fromOffset(data, 0),
+      nestingLimit: 0x7fffffff,
+    );
   }
 
   final ReaderArena arena;

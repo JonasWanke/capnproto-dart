@@ -1,34 +1,53 @@
+import 'dart:typed_data';
+
 import 'package:capnproto/capnproto.dart';
 import 'package:meta/meta.dart';
-import 'package:oxidized/oxidized.dart';
 
 @useResult
-CapnpResult<void> generateConstant(
+String generateConstantPointerReader(
   String name,
   AnyPointerReader constant,
-  StringBuffer buffer,
-) {
-  final int wordCount;
-  switch (constant.reader.totalSize()) {
-    case Ok(:final value):
-      wordCount = value.wordCount + 1;
-    case Err(:final error):
-      return Err(error);
-  }
-
+  StringBuffer buffer, {
+  required bool isStatic,
+}) {
+  final wordCount = constant.reader.totalSize().unwrap().wordCount + 1;
   final message =
       MessageBuilder(allocator: HeapAllocator(firstSegmentWords: wordCount));
 
-  if (message.setRoot(constant) case Err(:final error)) return Err(error);
+  message.setRoot(constant).unwrap();
 
-  final segment = message.segmentsForOutput.single;
+  final reference = _generateConstantDataRaw(
+    '${name}Data',
+    message.segmentsForOutput.single,
+    buffer,
+    isStatic: isStatic,
+  );
+  return 'PointerReader.getRootUnchecked($reference)';
+}
 
-  final stringContent = segment.buffer
+void generateConstantData(
+  String name,
+  ByteData data,
+  StringBuffer buffer, {
+  required bool isStatic,
+}) {
+  final staticString = isStatic ? 'static' : '';
+  final reference =
+      _generateConstantDataRaw(name, data, buffer, isStatic: isStatic);
+  buffer.writeln('$staticString final $name = $reference;');
+}
+
+String _generateConstantDataRaw(
+  String name,
+  ByteData data,
+  StringBuffer buffer, {
+  required bool isStatic,
+}) {
+  final staticString = isStatic ? 'static' : '';
+  final stringContent = data.buffer
       .asUint16List()
       .map((it) => '\\u${it.toRadixString(16).padLeft(4, '0')}')
       .join();
-  buffer.writeln("static const ${name}Data = '$stringContent';");
-  buffer.writeln('static final $name = '
-      'Uint16List.fromList(${name}Data.codeUnits).buffer.asByteData()');
-  return const Ok(null);
+  buffer.writeln("$staticString const _${name}Encoded = '$stringContent';");
+  return 'Uint16List.fromList(_${name}Encoded.codeUnits).buffer.asByteData()';
 }
