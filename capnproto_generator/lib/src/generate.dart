@@ -394,7 +394,7 @@ class FileGenerator {
               Type_Which_Text_Reader(),
               Value_Which_Text_Reader(:final value),
             ):
-            if (value != '') {
+            if (slot.hadExplicitDefault) {
               _buffer.writeln('// TODO: codegen default value for text field');
             }
             generateHas();
@@ -406,7 +406,7 @@ class FileGenerator {
               Type_Which_Data_Reader(),
               Value_Which_Data_Reader(:final value)
             ):
-            if (value.lengthInBytes > 0) {
+            if (slot.hadExplicitDefault) {
               _buffer.writeln('// TODO: codegen default value for data field');
             }
             generateHas();
@@ -531,7 +531,19 @@ class FileGenerator {
               Type_Which_AnyPointer_Reader(),
               Value_Which_AnyPointer_Reader(),
             ):
-            _buffer.writeln('// TODO: codegen for AnyPointer-typed field');
+            if (slot.hadExplicitDefault) {
+              throw UnsupportedError(
+                'Default value for AnyPointer-typed field is unsupported',
+              );
+            }
+
+            generateHas();
+
+            _buffer.writeln(
+              '${_imports.anyPointerReader} get $name => '
+              // ignore: lines_longer_than_80_chars
+              '${_imports.anyPointerReader}(reader.getPointer(${slot.offset}));',
+            );
 
           default:
             throw ArgumentError("Field's type and default value don't match.");

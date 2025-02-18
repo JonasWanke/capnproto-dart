@@ -16,7 +16,12 @@ class Imports {
       import(Uri.parse('dart:typed_data'), identifier, prefix: r'$typed_data');
 
   String get capnpStructReader => _importCapnproto('CapnpStructReader');
+  String get anyPointerReader => _importCapnproto('AnyPointerReader');
   String get structReader => _importCapnproto('StructReader');
+  String get structListReader => _importCapnproto('StructListReader');
+  String get primitiveListReader => _importCapnproto('PrimitiveListReader');
+  String get textListReader => _importCapnproto('TextListReader');
+  String get dataListReader => _importCapnproto('DataListReader');
   String _importCapnproto(String identifier) {
     return import(
       Uri.parse('package:capnproto/capnproto.dart'),

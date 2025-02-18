@@ -859,8 +859,10 @@ final class Value_Which_Interface_Reader extends Value_Which_Reader {
 final class Value_Which_AnyPointer_Reader extends Value_Which_Reader {
   const Value_Which_AnyPointer_Reader(super.reader);
 
+  AnyPointerReader get value => AnyPointerReader(reader.getPointer(0));
+
   @override
-  String toString() => 'anyPointer = ()';
+  String toString() => 'anyPointer = $value';
 }
 
 final class Value_Which_NotInSchema_Reader extends Value_Which_Reader {
