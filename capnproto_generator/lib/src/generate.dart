@@ -90,7 +90,7 @@ class GeneratorContext {
 
     // Fix up "anonymous" method params and results scopes.
     // for (final node in request.nodes) {
-    //   if (node.which case final Node_Which_Interface_Reader interface) {
+    //   if (node.which case final Node_interface_Reader interface) {
     //     for (final method in interface.methods) {
     //       final paramStructType = method.paramStructType;
     //       if (nodeParents[paramStructType] == 0) {
@@ -123,10 +123,10 @@ class GeneratorContext {
   final CodeGeneratorRequest_Reader request;
   final Map<int, Node_Reader> nodeMap = {};
 
-  Node_Which_Struct_Reader getGroup(int nodeId) {
+  Node_struct_Reader getGroup(int nodeId) {
     final node = nodeMap[nodeId]!;
     final which = node.which;
-    if (which is! Node_Which_Struct_Reader) {
+    if (which is! Node_struct_Reader) {
       throw ArgumentError('Node $nodeId is not a group');
     }
     assert(which.isGroup);
@@ -227,7 +227,7 @@ class FileGenerator {
       for (var i = 0; i < nestedNodes.length; i++) {
         final nestedNode = nestedNodes[i];
         if (context.nodeMap[nestedNode.id]!.which
-            case final Node_Which_Const_Reader constant) {
+            case final Node_const_Reader constant) {
           _generateConstant(
             nestedNode.dartName,
             constant.type,
@@ -242,9 +242,10 @@ class FileGenerator {
     }
 
     switch (node.which) {
-      case Node_Which_File_Reader():
+      case Node_file_Reader():
         break;
-      case final Node_Which_Struct_Reader struct:
+
+      case final Node_struct_Reader struct:
         _buffer.writeln('// struct ${node.shortDisplayName}');
         _buffer.writeln();
 
@@ -264,13 +265,13 @@ class FileGenerator {
             unionFields.add(field);
           } else {
             switch (field.which) {
-              case final Field_Which_Slot_Reader slot:
+              case final Field_slot_Reader slot:
                 _generateField(field.dartName, slot);
 
-              case Field_Which_Group_Reader():
+              case Field_group_Reader():
                 _buffer.writeln('// TODO: codegen for group');
 
-              case Field_Which_NotInSchema_Reader():
+              case Field_notInSchema_Reader():
                 throw UnsupportedError('Unknown field type');
             }
 
@@ -279,19 +280,19 @@ class FileGenerator {
         }
 
         if (unionFields.isNotEmpty) {
-          _buffer.writeln('${name}_Which_Reader get which {');
+          _buffer.writeln('${name}_union_Reader get which {');
           _buffer.writeln(
             // ignore: lines_longer_than_80_chars
             'return switch (reader.getUInt16(${struct.discriminantOffset}, 0)) {',
           );
           for (final unionField in unionFields) {
-            final variantName = '${name}_Which_${unionField.name.capitalize()}';
+            final variantName = '${name}_${unionField.name}';
             _buffer.writeln(
               // ignore: lines_longer_than_80_chars
               '${unionField.discriminantValue} => ${variantName}_Reader(reader),',
             );
           }
-          _buffer.writeln('_ => ${name}_Which_NotInSchema_Reader(reader),');
+          _buffer.writeln('_ => ${name}_notInSchema_Reader(reader),');
           _buffer.writeln('};');
           _buffer.writeln('}');
         }
@@ -305,40 +306,40 @@ class FileGenerator {
 
           _buffer.writeln(
             '// ignore: camel_case_types\n'
-            'sealed class ${name}_Which_Reader '
+            'sealed class ${name}_union_Reader '
             '    extends ${_imports.capnpStructReader} {\n'
-            '  const ${name}_Which_Reader(super.reader);\n'
+            '  const ${name}_union_Reader(super.reader);\n'
             '}',
           );
           _buffer.writeln();
 
           for (final unionField in unionFields) {
-            final variantName = '${name}_Which_${unionField.name.capitalize()}';
+            final variantName = '${name}_${unionField.name}';
             _buffer.writeln('// ignore: camel_case_types');
             _buffer.writeln(
-              'class ${variantName}_Reader extends ${name}_Which_Reader {',
+              'class ${variantName}_Reader extends ${name}_union_Reader {',
             );
             _buffer.writeln('const ${variantName}_Reader(super.reader);');
             _buffer.writeln();
             switch (unionField.which) {
-              case final Field_Which_Slot_Reader slot:
+              case final Field_slot_Reader slot:
                 _generateField('value', slot);
 
-              case Field_Which_Group_Reader(:final typeId):
+              case Field_group_Reader(:final typeId):
                 for (final field in context.getGroup(typeId).fields) {
                   switch (field.which) {
-                    case final Field_Which_Slot_Reader slot:
+                    case final Field_slot_Reader slot:
                       _generateField(field.dartName, slot);
 
-                    case Field_Which_Group_Reader():
+                    case Field_group_Reader():
                       _buffer.writeln('// TODO: codegen for group');
 
-                    case Field_Which_NotInSchema_Reader():
+                    case Field_notInSchema_Reader():
                       throw UnsupportedError('Unknown field type');
                   }
                 }
 
-              case Field_Which_NotInSchema_Reader():
+              case Field_notInSchema_Reader():
                 throw UnsupportedError('Unknown field type');
             }
 
@@ -348,15 +349,15 @@ class FileGenerator {
 
           _buffer.writeln(
             '// ignore: camel_case_types\n'
-            'class ${name}_Which_NotInSchema_Reader '
-            '    extends ${name}_Which_Reader {\n'
-            '  const ${name}_Which_NotInSchema_Reader(super.reader);\n'
+            'class ${name}_notInSchema_Reader '
+            '    extends ${name}_union_Reader {\n'
+            '  const ${name}_notInSchema_Reader(super.reader);\n'
             '}',
           );
           _buffer.writeln();
         }
 
-      case final Node_Which_Enum_Reader enum_:
+      case final Node_enum_Reader enum_:
         _buffer.writeln('// enum ${node.shortDisplayName}');
         _buffer.writeln();
 
@@ -387,16 +388,16 @@ class FileGenerator {
         _buffer.writeln('}');
         _buffer.writeln();
 
-      case Node_Which_Interface_Reader():
+      case Node_interface_Reader():
         _buffer.writeln('// TODO: codegen for interface');
 
-      case Node_Which_Const_Reader(:final type, :final value):
+      case Node_const_Reader(:final type, :final value):
         _generateConstant(name, type, value, isStatic: false);
 
-      case Node_Which_Annotation_Reader():
+      case Node_annotation_Reader():
         break;
 
-      case Node_Which_NotInSchema_Reader():
+      case Node_notInSchema_Reader():
         throw UnsupportedError('Unknown node type');
     }
 
@@ -405,7 +406,7 @@ class FileGenerator {
     }
   }
 
-  void _generateField(String name, Field_Which_Slot_Reader slot) {
+  void _generateField(String name, Field_slot_Reader slot) {
     void generateHas() {
       _buffer.writeln(
         '${_imports.bool} get has${name.capitalize()} => '
@@ -425,77 +426,77 @@ class FileGenerator {
     final defaultValue = hasExplicitDefault ? defaultName : null;
 
     switch (slot.type.which) {
-      case Type_Which_Void_Reader():
+      case Type_void_Reader():
         _buffer.writeln('void get $name {}');
 
-      case Type_Which_Bool_Reader():
+      case Type_bool_Reader():
         _buffer.writeln(
           '${_imports.bool} get $name => '
           'reader.getBool(${slot.offset}, ${defaultValue ?? false});',
         );
 
-      case Type_Which_Int8_Reader():
+      case Type_int8_Reader():
         _buffer.writeln(
           '${_imports.int} get $name => '
           'reader.getInt8(${slot.offset}, ${defaultValue ?? 0});',
         );
-      case Type_Which_Int16_Reader():
+      case Type_int16_Reader():
         _buffer.writeln(
           '${_imports.int} get $name => '
           'reader.getInt16(${slot.offset}, ${defaultValue ?? 0});',
         );
-      case Type_Which_Int32_Reader():
+      case Type_int32_Reader():
         _buffer.writeln(
           '${_imports.int} get $name => '
           'reader.getInt32(${slot.offset}, ${defaultValue ?? 0});',
         );
-      case Type_Which_Int64_Reader():
+      case Type_int64_Reader():
         _buffer.writeln(
           '${_imports.int} get $name => '
           'reader.getInt64(${slot.offset}, ${defaultValue ?? 0});',
         );
-      case Type_Which_Uint8_Reader():
+      case Type_uint8_Reader():
         _buffer.writeln(
           '${_imports.int} get $name => '
           'reader.getUInt8(${slot.offset}, ${defaultValue ?? 0});',
         );
-      case Type_Which_Uint16_Reader():
+      case Type_uint16_Reader():
         _buffer.writeln(
           '${_imports.int} get $name => '
           'reader.getUInt16(${slot.offset}, ${defaultValue ?? 0});',
         );
-      case Type_Which_Uint32_Reader():
+      case Type_uint32_Reader():
         _buffer.writeln(
           '${_imports.int} get $name => '
           'reader.getUInt32(${slot.offset}, ${defaultValue ?? 0});',
         );
-      case Type_Which_Uint64_Reader():
+      case Type_uint64_Reader():
         _buffer.writeln(
           '${_imports.int} get $name => '
           'reader.getUInt64(${slot.offset}, ${defaultValue ?? 0});',
         );
 
-      case Type_Which_Float32_Reader():
+      case Type_float32_Reader():
         _buffer.writeln(
           '${_imports.double} get $name => '
           // ignore: lines_longer_than_80_chars
           'reader.getFloat32(${slot.offset}, ${defaultValue == null ? '0' : '_${defaultValue}Bits'});',
         );
-      case Type_Which_Float64_Reader():
+      case Type_float64_Reader():
         _buffer.writeln(
           '${_imports.double} get $name => '
           // ignore: lines_longer_than_80_chars
           'reader.getFloat64(${slot.offset}, ${defaultValue == null ? '0' : '_${defaultValue}Bits'});',
         );
 
-      case Type_Which_Text_Reader():
+      case Type_text_Reader():
         generateHas();
         _buffer.writeln(
           '${_imports.string} get $name => '
           // ignore: lines_longer_than_80_chars
           'reader.getPointer(${slot.offset}).getText($defaultValue).unwrap();',
         );
-      case Type_Which_Data_Reader():
+      case Type_data_Reader():
         generateHas();
         _buffer.writeln(
           '${_imports.byteData} get $name => '
@@ -503,7 +504,7 @@ class FileGenerator {
           'reader.getPointer(${slot.offset}).getData($defaultValue).unwrap();',
         );
 
-      case Type_Which_List_Reader(:final elementType):
+      case Type_list_Reader(:final elementType):
         generateHas();
 
         void generatePrimitiveList(String dartType, String capnpType) {
@@ -514,47 +515,47 @@ class FileGenerator {
           );
         }
         switch (elementType.which) {
-          case Type_Which_Void_Reader():
+          case Type_void_Reader():
             generatePrimitiveList('void', 'void');
-          case Type_Which_Bool_Reader():
+          case Type_bool_Reader():
             generatePrimitiveList('bool', 'bool');
-          case Type_Which_Int8_Reader():
+          case Type_int8_Reader():
             generatePrimitiveList('int', 'int8');
-          case Type_Which_Int16_Reader():
+          case Type_int16_Reader():
             generatePrimitiveList('int', 'int16');
-          case Type_Which_Int32_Reader():
+          case Type_int32_Reader():
             generatePrimitiveList('int', 'int32');
-          case Type_Which_Int64_Reader():
+          case Type_int64_Reader():
             generatePrimitiveList('int', 'int64');
-          case Type_Which_Uint8_Reader():
+          case Type_uint8_Reader():
             generatePrimitiveList('int', 'uint8');
-          case Type_Which_Uint16_Reader():
+          case Type_uint16_Reader():
             generatePrimitiveList('int', 'uint16');
-          case Type_Which_Uint32_Reader():
+          case Type_uint32_Reader():
             generatePrimitiveList('int', 'uint32');
-          case Type_Which_Uint64_Reader():
+          case Type_uint64_Reader():
             generatePrimitiveList('int', 'uint64');
-          case Type_Which_Float32_Reader():
+          case Type_float32_Reader():
             generatePrimitiveList('double', 'float32');
-          case Type_Which_Float64_Reader():
+          case Type_float64_Reader():
             generatePrimitiveList('double', 'float64');
-          case Type_Which_Text_Reader():
+          case Type_text_Reader():
             _buffer.writeln(
               '${_imports.textListReader} get $name =>'
               // ignore: lines_longer_than_80_chars
               '${_imports.textListReader}.getFromPointer(reader.getPointer(${slot.offset}), $defaultValue).unwrap();',
             );
-          case Type_Which_Data_Reader():
+          case Type_data_Reader():
             _buffer.writeln(
               '${_imports.dataListReader} get $name =>'
               // ignore: lines_longer_than_80_chars
               '${_imports.dataListReader}.getFromPointer(reader.getPointer(${slot.offset}), $defaultValue).unwrap();',
             );
-          case Type_Which_List_Reader():
+          case Type_list_Reader():
             _buffer.writeln('// TODO: codegen field of type list of list');
-          case Type_Which_Enum_Reader():
+          case Type_enum_Reader():
             _buffer.writeln('// TODO: codegen field of type list of enum');
-          case Type_Which_Struct_Reader(:final typeId):
+          case Type_struct_Reader(:final typeId):
             final elementType = context.nodeImportsAndNames[typeId]!;
             final elementTypeString =
                 _imports.import(elementType.importUri, elementType.name);
@@ -569,22 +570,22 @@ class FileGenerator {
               '}',
             );
 
-          case Type_Which_Interface_Reader():
+          case Type_interface_Reader():
             _buffer.writeln(
               '// TODO: codegen field of type list of interface',
             );
-          case Type_Which_AnyPointer_Reader():
+          case Type_anyPointer_Reader():
             _buffer.writeln(
               '// TODO: codegen field of type list of AnyPointer',
             );
-          case Type_Which_NotInSchema_Reader():
+          case Type_notInSchema_Reader():
             throw UnsupportedError('Unknown list element type');
         }
 
-      case Type_Which_Enum_Reader():
+      case Type_enum_Reader():
         _buffer.writeln('// TODO: codegen for enum-typed field');
 
-      case Type_Which_Struct_Reader(:final typeId):
+      case Type_struct_Reader(:final typeId):
         generateHas();
 
         final type = context.nodeImportsAndNames[typeId]!;
@@ -595,10 +596,10 @@ class FileGenerator {
           '${typeString}_Reader(reader.getPointer(${slot.offset}).getStruct($defaultValue).unwrap());',
         );
 
-      case Type_Which_Interface_Reader():
+      case Type_interface_Reader():
         _buffer.writeln('// TODO: codegen for interface-typed field');
 
-      case Type_Which_AnyPointer_Reader():
+      case Type_anyPointer_Reader():
         if (defaultValue != null) {
           throw UnsupportedError(
             'Default value for AnyPointer-typed field is unsupported',
@@ -628,56 +629,32 @@ class FileGenerator {
     final staticString = isStatic ? 'static' : '';
 
     switch ((type.which, value.which)) {
-      case (Type_Which_Void_Reader(), Value_Which_Void_Reader()):
+      case (Type_void_Reader(), Value_void_Reader()):
         if (onlyIfNotDefault) return false;
 
         _buffer.writeln('$staticString const $name = null;');
 
-      case (Type_Which_Bool_Reader(), Value_Which_Bool_Reader(:final value)):
+      case (Type_bool_Reader(), Value_bool_Reader(:final value)):
         // ignore: no_literal_bool_comparisons, no-boolean-literal-compare
         if (onlyIfNotDefault && value == false) return false;
 
         _buffer.writeln('$staticString const $name = $value;');
 
-      case (
-              Type_Which_Int8_Reader(),
-              Value_Which_Int8_Reader(:final num value),
-            ) ||
-            (
-              Type_Which_Int16_Reader(),
-              Value_Which_Int16_Reader(:final num value),
-            ) ||
-            (
-              Type_Which_Int32_Reader(),
-              Value_Which_Int32_Reader(:final num value),
-            ) ||
-            (
-              Type_Which_Int64_Reader(),
-              Value_Which_Int64_Reader(:final num value),
-            ) ||
-            (
-              Type_Which_Uint8_Reader(),
-              Value_Which_Uint8_Reader(:final num value),
-            ) ||
-            (
-              Type_Which_Uint16_Reader(),
-              Value_Which_Uint16_Reader(:final num value),
-            ) ||
-            (
-              Type_Which_Uint32_Reader(),
-              Value_Which_Uint32_Reader(:final num value),
-            ) ||
-            (
-              Type_Which_Uint64_Reader(),
-              Value_Which_Uint64_Reader(:final num value),
-            ):
+      case (Type_int8_Reader(), Value_int8_Reader(:final num value)) ||
+            (Type_int16_Reader(), Value_int16_Reader(:final num value)) ||
+            (Type_int32_Reader(), Value_int32_Reader(:final num value)) ||
+            (Type_int64_Reader(), Value_int64_Reader(:final num value)) ||
+            (Type_uint8_Reader(), Value_uint8_Reader(:final num value)) ||
+            (Type_uint16_Reader(), Value_uint16_Reader(:final num value)) ||
+            (Type_uint32_Reader(), Value_uint32_Reader(:final num value)) ||
+            (Type_uint64_Reader(), Value_uint64_Reader(:final num value)):
         if (onlyIfNotDefault && value == 0) return false;
 
         _buffer.writeln('$staticString const $name = $value;');
 
       case (
-          Type_Which_Float32_Reader(),
-          Value_Which_Float32_Reader(:final reader, :final num value),
+          Type_float32_Reader(),
+          Value_float32_Reader(:final reader, :final num value),
         ):
         if (onlyIfNotDefault && value == 0) return false;
 
@@ -687,8 +664,8 @@ class FileGenerator {
           '$staticString final _${name}Bits = ${reader.getUInt32(1, 0).toRadixString(16).padLeft(8, '0')};',
         );
       case (
-          Type_Which_Float64_Reader(),
-          Value_Which_Float64_Reader(:final reader, :final num value),
+          Type_float64_Reader(),
+          Value_float64_Reader(:final reader, :final num value),
         ):
         if (onlyIfNotDefault && value == 0) return false;
 
@@ -698,7 +675,7 @@ class FileGenerator {
           '$staticString final _${name}Bits = ${reader.getUInt32(1, 0).toRadixString(16).padLeft(16, '0')};',
         );
 
-      case (Type_Which_Text_Reader(), Value_Which_Text_Reader(:final value)):
+      case (Type_text_Reader(), Value_text_Reader(:final value)):
         if (onlyIfNotDefault && value == '') return false;
 
         _buffer.writeln(
@@ -706,15 +683,12 @@ class FileGenerator {
           "'${value.replaceAll("'", r"\'").replaceAll('\n', r'\n')}';",
         );
 
-      case (Type_Which_Data_Reader(), Value_Which_Data_Reader(:final value)):
+      case (Type_data_Reader(), Value_data_Reader(:final value)):
         if (onlyIfNotDefault && value.lengthInBytes == 0) return false;
 
         generateConstantData(name, value, _buffer, isStatic: isStatic);
 
-      case (
-          Type_Which_Enum_Reader(:final typeId),
-          Value_Which_Enum_Reader(:final value),
-        ):
+      case (Type_enum_Reader(:final typeId), Value_enum_Reader(:final value)):
         if (onlyIfNotDefault && value == 0) return false;
 
         final type = context.nodeMap[typeId]!;
@@ -722,7 +696,7 @@ class FileGenerator {
         final enumTypeString =
             _imports.import(enumType.importUri, enumType.name);
 
-        if (type.which case final Node_Which_Enum_Reader enum_) {
+        if (type.which case final Node_enum_Reader enum_) {
           final enumerant = enum_.enumerants[value];
           _buffer.writeln(
             '$staticString const $name = $enumTypeString.${enumerant.name};',
@@ -732,8 +706,8 @@ class FileGenerator {
         }
 
       case (
-          Type_Which_List_Reader(:final elementType),
-          Value_Which_List_Reader(:final value),
+          Type_list_Reader(:final elementType),
+          Value_list_Reader(:final value),
         ):
         final reference = generateConstantPointerReader(
           name,
@@ -750,45 +724,45 @@ class FileGenerator {
           );
         }
         switch (elementType.which) {
-          case Type_Which_Void_Reader():
+          case Type_void_Reader():
             generatePrimitiveList('void');
-          case Type_Which_Bool_Reader():
+          case Type_bool_Reader():
             generatePrimitiveList('bool');
-          case Type_Which_Int8_Reader():
+          case Type_int8_Reader():
             generatePrimitiveList('int8');
-          case Type_Which_Int16_Reader():
+          case Type_int16_Reader():
             generatePrimitiveList('int16');
-          case Type_Which_Int32_Reader():
+          case Type_int32_Reader():
             generatePrimitiveList('int32');
-          case Type_Which_Int64_Reader():
+          case Type_int64_Reader():
             generatePrimitiveList('int64');
-          case Type_Which_Uint8_Reader():
+          case Type_uint8_Reader():
             generatePrimitiveList('uint8');
-          case Type_Which_Uint16_Reader():
+          case Type_uint16_Reader():
             generatePrimitiveList('uint16');
-          case Type_Which_Uint32_Reader():
+          case Type_uint32_Reader():
             generatePrimitiveList('uint32');
-          case Type_Which_Uint64_Reader():
+          case Type_uint64_Reader():
             generatePrimitiveList('uint64');
-          case Type_Which_Float32_Reader():
+          case Type_float32_Reader():
             generatePrimitiveList('float32');
-          case Type_Which_Float64_Reader():
+          case Type_float64_Reader():
             generatePrimitiveList('float64');
-          case Type_Which_Text_Reader():
+          case Type_text_Reader():
             _buffer.writeln(
               // ignore: lines_longer_than_80_chars
               '${_imports.textListReader}.getFromPointer($reference, null).unwrap();',
             );
-          case Type_Which_Data_Reader():
+          case Type_data_Reader():
             _buffer.writeln(
               // ignore: lines_longer_than_80_chars
               '${_imports.dataListReader}.getFromPointer($reference, null).unwrap();',
             );
-          case Type_Which_List_Reader():
+          case Type_list_Reader():
             _buffer.writeln('// TODO: codegen field of type list of list');
-          case Type_Which_Enum_Reader():
+          case Type_enum_Reader():
             _buffer.writeln('// TODO: codegen field of type list of enum');
-          case Type_Which_Struct_Reader(:final typeId):
+          case Type_struct_Reader(:final typeId):
             final elementType = context.nodeImportsAndNames[typeId]!;
             final elementTypeString =
                 _imports.import(elementType.importUri, elementType.name);
@@ -798,21 +772,21 @@ class FileGenerator {
               '$listType.fromPointer($reference, ${elementTypeString}_Reader.new, null).unwrap();',
             );
 
-          case Type_Which_Interface_Reader():
+          case Type_interface_Reader():
             _buffer.writeln(
               '// TODO: codegen field of type list of interface',
             );
-          case Type_Which_AnyPointer_Reader():
+          case Type_anyPointer_Reader():
             _buffer.writeln(
               '// TODO: codegen field of type list of AnyPointer',
             );
-          case Type_Which_NotInSchema_Reader():
+          case Type_notInSchema_Reader():
             throw UnsupportedError('Unknown list element type');
         }
 
       case (
-          Type_Which_Struct_Reader(:final typeId),
-          Value_Which_Struct_Reader(:final value),
+          Type_struct_Reader(:final typeId),
+          Value_struct_Reader(:final value),
         ):
         final reference = generateConstantPointerReader(
           name,
@@ -828,13 +802,10 @@ class FileGenerator {
           '${typeString}_Reader($reference.getStruct(null).unwrap());',
         );
 
-      case (Type_Which_Interface_Reader(), Value_Which_Interface_Reader()):
+      case (Type_interface_Reader(), Value_interface_Reader()):
         return false;
 
-      case (
-          Type_Which_AnyPointer_Reader(),
-          Value_Which_AnyPointer_Reader(:final value)
-        ):
+      case (Type_anyPointer_Reader(), Value_anyPointer_Reader(:final value)):
         final reference = generateConstantPointerReader(
           name,
           value,
@@ -847,7 +818,7 @@ class FileGenerator {
           '${_imports.anyPointerReader}($reference);',
         );
 
-      case (Type_Which_NotInSchema_Reader(), Value_Which_NotInSchema_Reader()):
+      case (Type_notInSchema_Reader(), Value_notInSchema_Reader()):
         throw UnimplementedError('Interface constants are not yet supported');
 
       default:
@@ -889,7 +860,7 @@ extension on Annotation_Reader {
   String get nameAnnotationValue {
     assert(id == nameAnnotationId);
 
-    if (value.which case Value_Which_Text_Reader(value: final name)) {
+    if (value.which case Value_text_Reader(value: final name)) {
       if (name.isEmpty) {
         throw ArgumentError('`dart.name` annotation value must not be empty');
       } else if (_dartKeywordsToAvoid.contains(name)) {

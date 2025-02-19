@@ -101,18 +101,18 @@ class Person_Builder extends CapnpStructBuilder<Person_Reader> {
   int get id => builder.getUInt32(0, 0);
   set id(int value) => builder.setUInt32(0, value, 0);
 
-  bool get hasName => !builder.getPointerField(0).isNull;
-  String get name => builder.getPointerField(0).getText(null).unwrap();
-  set name(String value) => builder.getPointerField(0).setText(value);
+  bool get hasName => !builder.getPointer(0).isNull;
+  String get name => builder.getPointer(0).getText(null).unwrap();
+  set name(String value) => builder.getPointer(0).setText(value);
 
-  bool get hasEmail => !builder.getPointerField(1).isNull;
-  String get email => builder.getPointerField(1).getText(null).unwrap();
-  set email(String value) => builder.getPointerField(1).setText(value);
+  bool get hasEmail => !builder.getPointer(1).isNull;
+  String get email => builder.getPointer(1).getText(null).unwrap();
+  set email(String value) => builder.getPointer(1).setText(value);
 
   StructListBuilder<Person_PhoneNumber_Builder, Person_PhoneNumber_Reader>
       get phones {
     return StructListBuilder.getFromPointer(
-      builder.getPointerField(2),
+      builder.getPointer(2),
       Person_PhoneNumber_Builder.structSize,
       Person_PhoneNumber_Builder.new,
       Person_PhoneNumber_Reader.new,
@@ -123,7 +123,7 @@ class Person_Builder extends CapnpStructBuilder<Person_Reader> {
   StructListBuilder<Person_PhoneNumber_Builder, Person_PhoneNumber_Reader>
       initPhones(int length) {
     return StructListBuilder.initPointer(
-      builder.getPointerField(2),
+      builder.getPointer(2),
       length,
       Person_PhoneNumber_Builder.structSize,
       Person_PhoneNumber_Builder.new,
@@ -168,9 +168,9 @@ class Person_PhoneNumber_Builder
   Person_PhoneNumber_Reader get asReader =>
       Person_PhoneNumber_Reader(builder.asReader);
 
-  bool get hasNumber => !builder.getPointerField(0).isNull;
-  String get number => builder.getPointerField(0).getText(null).unwrap();
-  set number(String value) => builder.getPointerField(0).setText(value);
+  bool get hasNumber => !builder.getPointer(0).isNull;
+  String get number => builder.getPointer(0).getText(null).unwrap();
+  set number(String value) => builder.getPointer(0).setText(value);
 
   Person_PhoneNumber_Type get type =>
       Person_PhoneNumber_Type.fromValue(builder.getUInt16(0, 0));
@@ -212,13 +212,13 @@ class Person_Employment_Reader extends CapnpStructReader {
   bool get hasSchool =>
       reader.getUInt16(2, 0) == 2 && !reader.getPointer(3).isNull;
 
-  Person_Employment_Which_Reader get which {
+  Person_Employment_union_Reader get which {
     return switch (reader.getUInt16(2, 0)) {
-      0 => Person_Employment_Which_Unemployed_Reader(reader),
-      1 => Person_Employment_Which_Employer_Reader(reader),
-      2 => Person_Employment_Which_School_Reader(reader),
-      3 => Person_Employment_Which_SelfEmployed_Reader(reader),
-      _ => Person_Employment_Which_NotInSchema_Reader(reader),
+      0 => Person_Employment_unemployed_Reader(reader),
+      1 => Person_Employment_employer_Reader(reader),
+      2 => Person_Employment_school_Reader(reader),
+      3 => Person_Employment_selfEmployed_Reader(reader),
+      _ => Person_Employment_notInSchema_Reader(reader),
     };
   }
 
@@ -250,13 +250,13 @@ class Person_Employment_Builder
   // ignore: avoid_setters_without_getters
   set employer(String value) {
     builder.setUInt16(2, 1, 0);
-    builder.getPointerField(3).setText(value);
+    builder.getPointer(3).setText(value);
   }
 
   // ignore: avoid_setters_without_getters
   set school(String value) {
     builder.setUInt16(2, 2, 0);
-    builder.getPointerField(3).setText(value);
+    builder.getPointer(3).setText(value);
   }
 
   void setSelfEmployed() => builder.setUInt16(2, 3, 0);
@@ -264,21 +264,20 @@ class Person_Employment_Builder
   // TODO(JonasWanke): figure out `which` getter with strings
 }
 
-sealed class Person_Employment_Which_Reader extends CapnpStructReader {
-  const Person_Employment_Which_Reader(super.reader);
+sealed class Person_Employment_union_Reader extends CapnpStructReader {
+  const Person_Employment_union_Reader(super.reader);
 }
 
-class Person_Employment_Which_Unemployed_Reader
-    extends Person_Employment_Which_Reader {
-  const Person_Employment_Which_Unemployed_Reader(super.reader);
+class Person_Employment_unemployed_Reader
+    extends Person_Employment_union_Reader {
+  const Person_Employment_unemployed_Reader(super.reader);
 
   @override
   String toString() => '(unemployed = void)';
 }
 
-class Person_Employment_Which_Employer_Reader
-    extends Person_Employment_Which_Reader {
-  const Person_Employment_Which_Employer_Reader(super.reader);
+class Person_Employment_employer_Reader extends Person_Employment_union_Reader {
+  const Person_Employment_employer_Reader(super.reader);
 
   String get value => reader.getPointer(3).getText(null).unwrap();
 
@@ -286,9 +285,8 @@ class Person_Employment_Which_Employer_Reader
   String toString() => '(employer = $value)';
 }
 
-class Person_Employment_Which_School_Reader
-    extends Person_Employment_Which_Reader {
-  const Person_Employment_Which_School_Reader(super.reader);
+class Person_Employment_school_Reader extends Person_Employment_union_Reader {
+  const Person_Employment_school_Reader(super.reader);
 
   String get value => reader.getPointer(3).getText(null).unwrap();
 
@@ -296,17 +294,17 @@ class Person_Employment_Which_School_Reader
   String toString() => '(school = $value)';
 }
 
-class Person_Employment_Which_SelfEmployed_Reader
-    extends Person_Employment_Which_Reader {
-  const Person_Employment_Which_SelfEmployed_Reader(super.reader);
+class Person_Employment_selfEmployed_Reader
+    extends Person_Employment_union_Reader {
+  const Person_Employment_selfEmployed_Reader(super.reader);
 
   @override
   String toString() => '(selfEmployed = void)';
 }
 
-class Person_Employment_Which_NotInSchema_Reader
-    extends Person_Employment_Which_Reader {
-  const Person_Employment_Which_NotInSchema_Reader(super.reader);
+class Person_Employment_notInSchema_Reader
+    extends Person_Employment_union_Reader {
+  const Person_Employment_notInSchema_Reader(super.reader);
 
   @override
   String toString() => '<not in schema>';
@@ -346,10 +344,10 @@ class AddressBook_Builder extends CapnpStructBuilder<AddressBook_Reader> {
   @override
   AddressBook_Reader get asReader => AddressBook_Reader(builder.asReader);
 
-  bool get hasPeople => !builder.getPointerField(0).isNull;
+  bool get hasPeople => !builder.getPointer(0).isNull;
   StructListBuilder<Person_Builder, Person_Reader> get people {
     return StructListBuilder.getFromPointer(
-      builder.getPointerField(0),
+      builder.getPointer(0),
       Person_Builder.structSize,
       Person_Builder.new,
       Person_Reader.new,
@@ -359,7 +357,7 @@ class AddressBook_Builder extends CapnpStructBuilder<AddressBook_Reader> {
 
   StructListBuilder<Person_Builder, Person_Reader> initPeople(int length) {
     return StructListBuilder.initPointer(
-      builder.getPointerField(0),
+      builder.getPointer(0),
       length,
       Person_Builder.structSize,
       Person_Builder.new,

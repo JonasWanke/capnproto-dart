@@ -2661,7 +2661,7 @@ final class StructBuilder extends CapnpBuilder<StructReader> {
 
   // Pointer
 
-  PointerBuilder getPointerField(int index) {
+  PointerBuilder getPointer(int index) {
     assert(index >= 0);
     return PointerBuilder._(
       arena,
