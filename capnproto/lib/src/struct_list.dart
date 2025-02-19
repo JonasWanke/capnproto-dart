@@ -10,7 +10,7 @@ import 'reader_builder.dart';
 class StructListReader<R extends CapnpReader> extends CapnpListReader<R> {
   const StructListReader(super.reader, this.fromStruct);
 
-  static CapnpResult<StructListReader<R>> fromPointer<R extends CapnpReader>(
+  static CapnpResult<StructListReader<R>> getFromPointer<R extends CapnpReader>(
     PointerReader reader,
     FromStructReader<R> fromStruct,
     ByteData? defaultValue,

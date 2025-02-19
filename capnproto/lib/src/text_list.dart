@@ -7,7 +7,7 @@ import 'reader_builder.dart';
 class TextListReader extends CapnpListReader<String> {
   const TextListReader(super.reader);
 
-  static CapnpResult<TextListReader> fromPointer(
+  static CapnpResult<TextListReader> getFromPointer(
     PointerReader reader,
     ByteData? defaultValue,
   ) {

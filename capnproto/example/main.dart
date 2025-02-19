@@ -1,6 +1,7 @@
 // ignore_for_file: avoid_print, unreachable_from_main, camel_case_types
 
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:capnproto/capnproto.dart';
 
@@ -67,7 +68,7 @@ class Person_Reader extends CapnpStructReader {
 
   bool get hasPhones => !reader.getPointer(2).isNull;
   StructListReader<Person_PhoneNumber_Reader> get phones {
-    return StructListReader.fromPointer(
+    return StructListReader.getFromPointer(
       reader.getPointer(2),
       Person_PhoneNumber_Reader.new,
       null,
@@ -317,7 +318,7 @@ class AddressBook_Reader extends CapnpStructReader {
 
   bool get hasPeople => !reader.getPointer(0).isNull;
   StructListReader<Person_Reader> get people {
-    return StructListReader.fromPointer(
+    return StructListReader.getFromPointer(
       reader.getPointer(0),
       Person_Reader.new,
       null,
@@ -330,6 +331,14 @@ class AddressBook_Reader extends CapnpStructReader {
 
 class AddressBook_Builder extends CapnpStructBuilder<AddressBook_Reader> {
   const AddressBook_Builder(super.builder);
+
+  AddressBook_Builder.initPointer(PointerBuilder builder)
+      : this(builder.initStruct(structSize));
+
+  AddressBook_Builder.getFromPointer(
+    PointerBuilder builder,
+    ByteData? defaultValue,
+  ) : this(builder.getStruct(structSize, defaultValue).unwrap());
 
   static const structSize = StructSize(dataWords: 0, pointerCount: 1);
 

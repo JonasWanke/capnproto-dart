@@ -26,7 +26,7 @@ class Node_Reader extends CapnpStructReader {
 
   bool get hasParameters => !reader.getPointer(5).isNull;
   StructListReader<Node_Parameter_Reader> get parameters {
-    return StructListReader.fromPointer(
+    return StructListReader.getFromPointer(
       reader.getPointer(5),
       Node_Parameter_Reader.new,
       null,
@@ -37,7 +37,7 @@ class Node_Reader extends CapnpStructReader {
 
   bool get hasNestedNodes => !reader.getPointer(1).isNull;
   StructListReader<Node_NestedNode_Reader> get nestedNodes {
-    return StructListReader.fromPointer(
+    return StructListReader.getFromPointer(
       reader.getPointer(1),
       Node_NestedNode_Reader.new,
       null,
@@ -46,7 +46,7 @@ class Node_Reader extends CapnpStructReader {
 
   bool get hasAnnotations => !reader.getPointer(2).isNull;
   StructListReader<Annotation_Reader> get annotations {
-    return StructListReader.fromPointer(
+    return StructListReader.getFromPointer(
       reader.getPointer(2),
       Annotation_Reader.new,
       null,
@@ -102,7 +102,7 @@ class Node_struct_Reader extends Node_union_Reader {
 
   bool get hasFields => !reader.getPointer(3).isNull;
   StructListReader<Field_Reader> get fields {
-    return StructListReader.fromPointer(
+    return StructListReader.getFromPointer(
       reader.getPointer(3),
       Field_Reader.new,
       null,
@@ -125,7 +125,7 @@ class Node_enum_Reader extends Node_union_Reader {
 
   bool get hasEnumerants => !reader.getPointer(3).isNull;
   StructListReader<Enumerant_Reader> get enumerants {
-    return StructListReader.fromPointer(
+    return StructListReader.getFromPointer(
       reader.getPointer(3),
       Enumerant_Reader.new,
       null,
@@ -263,7 +263,7 @@ class Node_SourceInfo_Reader extends CapnpStructReader {
 
   bool get hasMembers => !reader.getPointer(1).isNull;
   StructListReader<Node_SourceInfo_Member_Reader> get members {
-    return StructListReader.fromPointer(
+    return StructListReader.getFromPointer(
       reader.getPointer(1),
       Node_SourceInfo_Member_Reader.new,
       null,
@@ -311,7 +311,7 @@ class Field_Reader extends CapnpStructReader {
 
   bool get hasAnnotations => !reader.getPointer(1).isNull;
   StructListReader<Annotation_Reader> get annotations {
-    return StructListReader.fromPointer(
+    return StructListReader.getFromPointer(
       reader.getPointer(1),
       Annotation_Reader.new,
       null,
@@ -434,7 +434,7 @@ class Enumerant_Reader extends CapnpStructReader {
 
   bool get hasAnnotations => !reader.getPointer(1).isNull;
   StructListReader<Annotation_Reader> get annotations {
-    return StructListReader.fromPointer(
+    return StructListReader.getFromPointer(
       reader.getPointer(1),
       Annotation_Reader.new,
       null,
@@ -962,7 +962,7 @@ class CodeGeneratorRequest_Reader extends CapnpStructReader {
 
   bool get hasNodes => !reader.getPointer(0).isNull;
   StructListReader<Node_Reader> get nodes {
-    return StructListReader.fromPointer(
+    return StructListReader.getFromPointer(
       reader.getPointer(0),
       Node_Reader.new,
       null,
@@ -971,7 +971,7 @@ class CodeGeneratorRequest_Reader extends CapnpStructReader {
 
   bool get hasSourceInfo => !reader.getPointer(3).isNull;
   StructListReader<Node_SourceInfo_Reader> get sourceInfo {
-    return StructListReader.fromPointer(
+    return StructListReader.getFromPointer(
       reader.getPointer(3),
       Node_SourceInfo_Reader.new,
       null,
@@ -981,7 +981,7 @@ class CodeGeneratorRequest_Reader extends CapnpStructReader {
   bool get hasRequestedFiles => !reader.getPointer(1).isNull;
   StructListReader<CodeGeneratorRequest_RequestedFile_Reader>
       get requestedFiles {
-    return StructListReader.fromPointer(
+    return StructListReader.getFromPointer(
       reader.getPointer(1),
       CodeGeneratorRequest_RequestedFile_Reader.new,
       null,
@@ -1017,7 +1017,7 @@ class CodeGeneratorRequest_RequestedFile_Reader extends CapnpStructReader {
   bool get hasImports => !reader.getPointer(1).isNull;
   StructListReader<CodeGeneratorRequest_RequestedFile_Import_Reader>
       get imports {
-    return StructListReader.fromPointer(
+    return StructListReader.getFromPointer(
       reader.getPointer(1),
       CodeGeneratorRequest_RequestedFile_Import_Reader.new,
       null,

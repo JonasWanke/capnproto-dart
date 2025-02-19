@@ -916,6 +916,15 @@ final class PointerBuilder extends CapnpBuilder<PointerReader> {
     );
   }
 
+  /// Returns a [StructBuilder] to the struct behind this pointer.
+  ///
+  /// If the pointer is null, it is initialized to a deep copy of the
+  /// [defaultValue].
+  ///
+  /// Unlike [initStruct], this tries to reuse the current allocation and
+  /// current values of the existing struct behind this pointer (if applicable).
+  /// Othwerwise, if provided, the [defaultValue] is used instead of creating a
+  /// struct instance with all-zero fields.
   CapnpResult<StructBuilder> getStruct(
     StructSize size,
     ByteData? defaultValue,
@@ -1013,6 +1022,12 @@ final class PointerBuilder extends CapnpBuilder<PointerReader> {
     );
   }
 
+  /// Allocates a new struct of the given size and returns a [StructBuilder] for
+  /// it.
+  ///
+  /// Unlike [getStruct], this method always allocates a new struct. This new
+  /// struct contains the default values for the struct’s type (i.e., all-zero),
+  /// rather than the default value for a specific field.
   StructBuilder initStruct(StructSize size) {
     final (segmentId, reff, data) = _allocate(
       arena,
@@ -1034,6 +1049,7 @@ final class PointerBuilder extends CapnpBuilder<PointerReader> {
     );
   }
 
+  /// Sets this pointer to a deep copy of [value].
   CapnpResult<void> setStruct(
     StructReader value, {
     bool canonicalize = false,

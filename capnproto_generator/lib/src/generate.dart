@@ -267,22 +267,48 @@ class FileGenerator {
         break;
 
       case final Node_struct_Reader struct:
-        final buffer = _addDeclaration();
+        final reader = _addDeclaration();
+        final builder = _addDeclaration();
 
-        buffer.writeln(
-          '// ${struct.isGroup ? 'group' : 'struct'} ${node.shortDisplayName}',
+        reader.writeln(
+          '// ${struct.isGroup ? 'group' : 'struct'} ${node.shortDisplayName}\n',
         );
-        buffer.writeln();
 
-        buffer.writeDocComment(sourceInfo?.docComment);
-        buffer.writeln(
-          'class ${name}_Reader '
-          'extends ${superClass ?? _imports.capnpStructReader} {',
+        final (superClassReader, superClassBuilder) = superClass != null
+            ? ('${superClass}_Reader', '${superClass}_Builder')
+            : (_imports.capnpStructReader, _imports.capnpStructBuilder);
+
+        reader.writeDocComment(sourceInfo?.docComment);
+        reader.writeln(
+          'class ${name}_Reader extends $superClassReader {\n'
+          '  const ${name}_Reader(super.reader);\n',
         );
-        buffer.writeln('const ${name}_Reader(super.reader);');
-        buffer.writeln();
+        generateConstantsAsStatic(reader);
 
-        generateConstantsAsStatic(buffer);
+        builder.writeDocComment(sourceInfo?.docComment);
+        builder.writeln(
+          // ignore: lines_longer_than_80_chars
+          'class ${name}_Builder extends $superClassBuilder<${name}_Reader> {\n'
+          '  const ${name}_Builder(super.builder);\n'
+          '\n'
+          '  ${name}_Builder.initPointer(${_imports.pointerBuilder} builder)\n'
+          '      : this(builder.initStruct(structSize));\n'
+          '\n'
+          '  ${name}_Builder.getFromPointer(\n'
+          '    ${_imports.pointerBuilder} builder,\n'
+          '    ${_imports.byteData} defaultValue,\n'
+          '  ) : this(builder.getStruct(structSize, defaultValue).unwrap());\n'
+          '\n'
+          '  static const structSize = ${_imports.structSize}('
+          '    dataWords: ${struct.dataWordCount},'
+          '    pointerCount: ${struct.pointerCount}'
+          '  );\n'
+          '\n'
+          '  @${_imports.override}\n'
+          // ignore: lines_longer_than_80_chars
+          '  ${name}_Reader get asReader => ${name}_Reader(builder.asReader);\n',
+        );
+        generateConstantsAsStatic(reader);
 
         final unionFields = <(Field_Reader, String?)>[];
 
@@ -294,9 +320,11 @@ class FileGenerator {
             switch (field.which) {
               case final Field_slot_Reader slot:
                 _generateField(
-                  buffer,
+                  reader,
+                  builder,
                   field.dartName.avoidDartKeywords(),
                   slot,
+                  readerClassName: '${name}_Reader',
                   docComment: docComment,
                 );
 
@@ -307,62 +335,110 @@ class FileGenerator {
                 throw UnsupportedError('Unknown field type');
             }
 
-            buffer.writeln();
+            reader.writeln();
+            builder.writeln();
           }
         }
 
         if (unionFields.isNotEmpty) {
-          buffer.writeln('${name}_union_Reader get which {');
-          buffer.writeln(
+          reader.writeln(
+            '${name}_union_Reader get which {\n'
             // ignore: lines_longer_than_80_chars
-            'return switch (reader.getUInt16(${struct.discriminantOffset}, 0)) {',
+            '  return switch (reader.getUInt16(${struct.discriminantOffset}, 0)) {',
           );
           for (final (unionField, _) in unionFields) {
             final variantName = '${name}_${unionField.name}';
-            buffer.writeln(
+            reader.writeln(
               // ignore: lines_longer_than_80_chars
               '${unionField.discriminantValue} => ${variantName}_Reader(reader),',
             );
           }
-          buffer.writeln('_ => ${name}_notInSchema_Reader(reader),');
-          buffer.writeln('};');
-          buffer.writeln('}');
+          reader.writeln(
+            '    _ => ${name}_notInSchema_Reader(reader),\n'
+            '  };\n'
+            '}',
+          );
+
+          builder.writeln(
+            '${name}_union_Builder get which {\n'
+            // ignore: lines_longer_than_80_chars
+            '  return switch (builder.getUInt16(${struct.discriminantOffset}, 0)) {',
+          );
+          for (final (unionField, _) in unionFields) {
+            final variantName = '${name}_${unionField.name}';
+            builder.writeln(
+              // ignore: lines_longer_than_80_chars
+              '${unionField.discriminantValue} => ${variantName}_Builder(builder),',
+            );
+          }
+          builder.writeln(
+            '    _ => ${name}_notInSchema_Builder(builder),\n'
+            '  };\n'
+            '}',
+          );
         }
 
-        buffer.writeln('}');
-        buffer.writeln();
+        reader.writeln('}');
+        builder.writeln('}');
 
         if (unionFields.isNotEmpty) {
           assert(unionFields.length >= 2);
           assert(unionFields.length == struct.discriminantCount);
 
-          buffer.writeln(
+          reader.writeln(
             'sealed class ${name}_union_Reader '
             '    extends ${_imports.capnpStructReader} {\n'
             '  const ${name}_union_Reader(super.reader);\n'
             '}',
           );
-          buffer.writeln();
+
+          builder.writeln(
+            // ignore: lines_longer_than_80_chars
+            'sealed class ${name}_union_Builder<R extends ${name}_union_Reader> '
+            '    extends ${_imports.capnpStructBuilder}<R> {\n'
+            '  const ${name}_union_Builder(super.builder);\n'
+            '}',
+          );
 
           for (final (unionField, docComment) in unionFields) {
             switch (unionField.which) {
               case final Field_slot_Reader slot:
-                final buffer = _addDeclaration();
-
-                buffer.writeDocComment(docComment);
                 final variantName = '${name}_${unionField.dartName}';
-                buffer.writeln(
-                  'class ${variantName}_Reader extends ${name}_union_Reader {',
+                final reader = _addDeclaration();
+                final builder = _addDeclaration();
+
+                reader.writeDocComment(docComment);
+                reader.writeln(
+                  'class ${variantName}_Reader extends ${name}_union_Reader {\n'
+                  '  const ${variantName}_Reader(super.reader);\n',
                 );
-                buffer.writeln('const ${variantName}_Reader(super.reader);');
-                buffer.writeln();
 
-                _generateField(buffer, 'value', slot, docComment: null);
+                builder.writeDocComment(docComment);
+                builder.writeln(
+                  // ignore: lines_longer_than_80_chars
+                  'class ${variantName}_Builder extends ${name}_union_Builder {\n'
+                  '  const ${variantName}_Builder(super.builder);\n'
+                  '\n'
+                  '  @${_imports.override}\n'
+                  '  ${variantName}_Reader get asReader =>'
+                  '      ${variantName}_Reader(builder.asReader);\n'
+                  '\n',
+                );
 
-                buffer.writeln('}');
+                _generateField(
+                  reader,
+                  builder,
+                  'value',
+                  slot,
+                  readerClassName: '${variantName}_Reader',
+                  docComment: null,
+                );
+
+                reader.writeln('}');
+                builder.writeln('}');
 
               case Field_group_Reader(:final typeId):
-                _generateNode(typeId, superClass: '${name}_union_Reader');
+                _generateNode(typeId, superClass: '${name}_union');
 
               case Field_notInSchema_Reader():
                 throw UnsupportedError('Unknown field type');
@@ -372,6 +448,16 @@ class FileGenerator {
           _addDeclaration(
             'class ${name}_notInSchema_Reader extends ${name}_union_Reader {\n'
             '  const ${name}_notInSchema_Reader(super.reader);\n'
+            '}',
+          );
+          _addDeclaration(
+            // ignore: lines_longer_than_80_chars
+            'class ${name}_notInSchema_Builder extends ${name}_union_Builder {\n'
+            '  const ${name}_notInSchema_Builder(super.reader);\n'
+            '\n'
+            '  @${_imports.override}\n'
+            '  ${name}_notInSchema_Reader get asReader =>'
+            '      ${name}_notInSchema_Reader(builder.asReader);\n'
             '}',
           );
         }
@@ -437,22 +523,29 @@ class FileGenerator {
   }
 
   void _generateField(
-    StringBuffer buffer,
+    StringBuffer reader,
+    StringBuffer builder,
     String name,
     Field_slot_Reader slot, {
+    required String readerClassName,
     required String? docComment,
   }) {
     void generateHas() {
-      buffer.writeln(
+      reader.writeln(
         '${_imports.bool} get has${name.capitalize()} => '
         '!reader.getPointer(${slot.offset}).isNull;',
+      );
+
+      builder.writeln(
+        '${_imports.bool} get has${name.capitalize()} => '
+        '!builder.getPointer(${slot.offset}).isNull;',
       );
     }
 
     final defaultName = 'default${name.capitalize()}';
     final hasExplicitDefault = slot.hadExplicitDefault &&
         _generateConstant(
-          buffer,
+          reader,
           defaultName,
           slot.type,
           slot.defaultValue,
@@ -460,112 +553,139 @@ class FileGenerator {
           docComment: 'Default value of [$name].',
           onlyIfNotDefault: true,
         );
-    final defaultValue = hasExplicitDefault ? defaultName : null;
+    final (defaultValue, defaultValueFromBuilder) = hasExplicitDefault
+        ? (defaultName, '$readerClassName.$defaultName')
+        : (null, null);
+
+    void generatePrimitiveField(
+      String dartType,
+      String capnpType,
+      String defaultDefaultValue, {
+      String? defaultDefaultValueFromBuilder,
+    }) {
+      reader.writeDocComment(docComment);
+      reader.writeln(
+        '$dartType get $name =>'
+        // ignore: lines_longer_than_80_chars
+        '  reader.get$capnpType(${slot.offset}, ${defaultValue ?? defaultDefaultValue});',
+      );
+
+      final defaultFromBuilder = defaultValueFromBuilder ??
+          defaultDefaultValueFromBuilder ??
+          defaultDefaultValue;
+      builder.writeDocComment(docComment);
+      builder.writeln(
+        '$dartType get $name =>'
+        '  builder.get$capnpType(${slot.offset}, $defaultFromBuilder);\n'
+        'set $name($dartType value) =>'
+        '  builder.set$capnpType(${slot.offset}, value, $defaultFromBuilder);',
+      );
+    }
 
     switch (slot.type.which) {
       case Type_void_Reader():
-        buffer.writeDocComment(docComment);
-        buffer.writeln('void get $name {}');
+        reader.writeDocComment(docComment);
+        reader.writeln('void get $name {}');
+
+        builder.writeDocComment(docComment);
+        builder.writeln('void get $name {}');
 
       case Type_bool_Reader():
-        buffer.writeDocComment(docComment);
-        buffer.writeln(
-          '${_imports.bool} get $name => '
-          'reader.getBool(${slot.offset}, ${defaultValue ?? false});',
-        );
+        generatePrimitiveField(_imports.bool, 'Bool', 'false');
 
       case Type_int8_Reader():
-        buffer.writeDocComment(docComment);
-        buffer.writeln(
-          '${_imports.int} get $name => '
-          'reader.getInt8(${slot.offset}, ${defaultValue ?? 0});',
-        );
+        generatePrimitiveField(_imports.int, 'Int8', '0');
       case Type_int16_Reader():
-        buffer.writeDocComment(docComment);
-        buffer.writeln(
-          '${_imports.int} get $name => '
-          'reader.getInt16(${slot.offset}, ${defaultValue ?? 0});',
-        );
+        generatePrimitiveField(_imports.int, 'Int16', '0');
       case Type_int32_Reader():
-        buffer.writeDocComment(docComment);
-        buffer.writeln(
-          '${_imports.int} get $name => '
-          'reader.getInt32(${slot.offset}, ${defaultValue ?? 0});',
-        );
+        generatePrimitiveField(_imports.int, 'Int32', '0');
       case Type_int64_Reader():
-        buffer.writeDocComment(docComment);
-        buffer.writeln(
-          '${_imports.int} get $name => '
-          'reader.getInt64(${slot.offset}, ${defaultValue ?? 0});',
-        );
+        generatePrimitiveField(_imports.int, 'Int64', '0');
       case Type_uint8_Reader():
-        buffer.writeDocComment(docComment);
-        buffer.writeln(
-          '${_imports.int} get $name => '
-          'reader.getUInt8(${slot.offset}, ${defaultValue ?? 0});',
-        );
+        generatePrimitiveField(_imports.int, 'UInt8', '0');
       case Type_uint16_Reader():
-        buffer.writeDocComment(docComment);
-        buffer.writeln(
-          '${_imports.int} get $name => '
-          'reader.getUInt16(${slot.offset}, ${defaultValue ?? 0});',
-        );
+        generatePrimitiveField(_imports.int, 'UInt16', '0');
       case Type_uint32_Reader():
-        buffer.writeDocComment(docComment);
-        buffer.writeln(
-          '${_imports.int} get $name => '
-          'reader.getUInt32(${slot.offset}, ${defaultValue ?? 0});',
-        );
+        generatePrimitiveField(_imports.int, 'UInt32', '0');
       case Type_uint64_Reader():
-        buffer.writeDocComment(docComment);
-        buffer.writeln(
-          '${_imports.int} get $name => '
-          'reader.getUInt64(${slot.offset}, ${defaultValue ?? 0});',
-        );
+        generatePrimitiveField(_imports.int, 'UInt64', '0');
 
       case Type_float32_Reader():
-        buffer.writeDocComment(docComment);
-        buffer.writeln(
-          '${_imports.double} get $name => '
-          // ignore: lines_longer_than_80_chars
-          'reader.getFloat32(${slot.offset}, ${defaultValue == null ? '0' : '_${defaultValue}Bits'});',
+        generatePrimitiveField(
+          _imports.double,
+          'Float32',
+          defaultValue == null ? '0' : '_${defaultValue}Bits',
+          defaultDefaultValueFromBuilder: defaultValue == null
+              ? '0'
+              : '$readerClassName._${defaultValue}Bits',
         );
       case Type_float64_Reader():
-        buffer.writeDocComment(docComment);
-        buffer.writeln(
-          '${_imports.double} get $name => '
-          // ignore: lines_longer_than_80_chars
-          'reader.getFloat64(${slot.offset}, ${defaultValue == null ? '0' : '_${defaultValue}Bits'});',
+        generatePrimitiveField(
+          _imports.double,
+          'Float64',
+          defaultValue == null ? '0' : '_${defaultValue}Bits',
+          defaultDefaultValueFromBuilder: defaultValue == null
+              ? '0'
+              : '$readerClassName._${defaultValue}Bits',
         );
 
       case Type_text_Reader():
         generateHas();
 
-        buffer.writeDocComment(docComment);
-        buffer.writeln(
-          '${_imports.string} get $name => '
+        reader.writeDocComment(docComment);
+        reader.writeln(
+          '${_imports.string} get $name =>'
           // ignore: lines_longer_than_80_chars
-          'reader.getPointer(${slot.offset}).getText($defaultValue).unwrap();',
+          '  reader.getPointer(${slot.offset}).getText($defaultValue).unwrap();',
+        );
+
+        builder.writeDocComment(docComment);
+        builder.writeln(
+          '${_imports.string} get $name =>'
+          // ignore: lines_longer_than_80_chars
+          '  builder.getPointer(${slot.offset}).getText($defaultValue).unwrap();\n'
+          'set $name(${_imports.string} value) =>'
+          '  builder.getPointer(${slot.offset}).setText(value);',
         );
       case Type_data_Reader():
         generateHas();
 
-        buffer.writeDocComment(docComment);
-        buffer.writeln(
-          '${_imports.byteData} get $name => '
+        reader.writeDocComment(docComment);
+        reader.writeln(
+          '${_imports.byteData} get $name =>'
           // ignore: lines_longer_than_80_chars
-          'reader.getPointer(${slot.offset}).getData($defaultValue).unwrap();',
+          '  reader.getPointer(${slot.offset}).getData($defaultValue).unwrap();',
+        );
+
+        builder.writeDocComment(docComment);
+        builder.writeln(
+          '${_imports.byteData} get $name =>'
+          // ignore: lines_longer_than_80_chars
+          '  builder.getPointer(${slot.offset}).getData($defaultValue).unwrap();\n'
+          'set $name(${_imports.byteData} value) =>'
+          '  builder.getPointer(${slot.offset}).setData(value);',
         );
 
       case Type_list_Reader(:final elementType):
         generateHas();
 
+        reader.writeDocComment(docComment);
+        builder.writeDocComment(docComment);
+
         void generatePrimitiveList(String dartType, String capnpType) {
-          buffer.writeDocComment(docComment);
-          buffer.writeln(
+          reader.writeln(
             '${_imports.primitiveListReader}<$dartType> get $name =>'
             // ignore: lines_longer_than_80_chars
-            '${_imports.primitiveListReader}.${capnpType}FromPointer(reader.getPointer(${slot.offset}), $defaultValue).unwrap();',
+            '  ${_imports.primitiveListReader}.${capnpType}GetFromPointer(reader.getPointer(${slot.offset}), $defaultValue).unwrap();',
+          );
+
+          builder.writeln(
+            '${_imports.primitiveListBuilder}<$dartType> get $name =>'
+            // ignore: lines_longer_than_80_chars
+            '  ${_imports.primitiveListBuilder}.${capnpType}GetFromPointer(builder.getPointer(${slot.offset}), $defaultValue).unwrap();\n'
+            'void init${name.capitalize()}(${_imports.int} length) => '
+            // ignore: lines_longer_than_80_chars
+            '  ${_imports.primitiveListBuilder}.${capnpType}InitPointer(builder.getPointer(${slot.offset}), length);',
           );
         }
         switch (elementType.which) {
@@ -594,65 +714,127 @@ class FileGenerator {
           case Type_float64_Reader():
             generatePrimitiveList('double', 'float64');
           case Type_text_Reader():
-            buffer.writeln(
+            reader.writeln(
               '${_imports.textListReader} get $name =>'
               // ignore: lines_longer_than_80_chars
-              '${_imports.textListReader}.getFromPointer(reader.getPointer(${slot.offset}), $defaultValue).unwrap();',
+              '  ${_imports.textListReader}.getFromPointer(reader.getPointer(${slot.offset}), $defaultValue).unwrap();',
+            );
+
+            builder.writeln(
+              '${_imports.textListBuilder} get $name =>'
+              // ignore: lines_longer_than_80_chars
+              '  ${_imports.textListBuilder}.getFromPointer(builder.getPointer(${slot.offset}), $defaultValue).unwrap();\n'
+              '${_imports.textListBuilder} init${name.capitalize()} =>'
+              // ignore: lines_longer_than_80_chars
+              '  ${_imports.textListBuilder}.initFromPointer(builder.getPointer(${slot.offset}), length);',
             );
           case Type_data_Reader():
-            buffer.writeln(
+            reader.writeln(
               '${_imports.dataListReader} get $name =>'
               // ignore: lines_longer_than_80_chars
-              '${_imports.dataListReader}.getFromPointer(reader.getPointer(${slot.offset}), $defaultValue).unwrap();',
+              '  ${_imports.dataListReader}.getFromPointer(reader.getPointer(${slot.offset}), $defaultValue).unwrap();',
+            );
+
+            builder.writeln(
+              '${_imports.dataListBuilder} get $name =>'
+              // ignore: lines_longer_than_80_chars
+              '  ${_imports.dataListBuilder}.getFromPointer(builder.getPointer(${slot.offset}), $defaultValue).unwrap();\n'
+              '${_imports.dataListBuilder} init${name.capitalize()} =>'
+              // ignore: lines_longer_than_80_chars
+              '  ${_imports.dataListBuilder}.initFromPointer(builder.getPointer(${slot.offset}), length);',
             );
           case Type_list_Reader():
-            buffer.writeln('// TODO: codegen field of type list of list');
+            reader.writeln('// TODO: codegen field of type list of list');
+            builder.writeln('// TODO: codegen field of type list of list');
           case Type_enum_Reader():
-            buffer.writeln('// TODO: codegen field of type list of enum');
+            reader.writeln('// TODO: codegen field of type list of enum');
+            builder.writeln('// TODO: codegen field of type list of enum');
           case Type_struct_Reader(:final typeId):
             final elementType = context.nodeImportsAndNames[typeId]!;
             final elementTypeString =
                 _imports.import(elementType.importUri, elementType.name);
-            final listType = _imports.structListReader;
-            buffer.writeln(
-              '$listType<${elementTypeString}_Reader> get $name {\n'
-              '  return $listType.fromPointer(\n'
-              '  reader.getPointer(${slot.offset}),\n'
-              '  ${elementTypeString}_Reader.new,\n'
-              '  $defaultValue,\n'
+            final listReaderClass = _imports.structListReader;
+            reader.writeln(
+              '$listReaderClass<${elementTypeString}_Reader> get $name {\n'
+              '  return $listReaderClass.getFromPointer(\n'
+              '    reader.getPointer(${slot.offset}),\n'
+              '    ${elementTypeString}_Reader.new,\n'
+              '    $defaultValue,\n'
               '  ).unwrap();\n'
               '}',
             );
 
+            final listBuilderClass = _imports.structListBuilder;
+            final listBuilder =
+                // ignore: lines_longer_than_80_chars
+                '$listBuilderClass<${elementTypeString}_Builder, ${elementTypeString}_Reader>';
+            builder.writeln(
+              '$listBuilder get $name {\n'
+              '  return $listBuilderClass.getFromPointer(\n'
+              '    builder.getPointer(${slot.offset}),\n'
+              '    ${elementTypeString}_Builder.structSize,\n'
+              '    ${elementTypeString}_Builder.new,\n'
+              '    ${elementTypeString}_Reader.new,\n'
+              '    $defaultValue,\n'
+              '  ).unwrap();\n'
+              '}\n'
+              // ignore: lines_longer_than_80_chars
+              '$listBuilder init${name.capitalize()}(${_imports.int} length) {\n'
+              '  return $listBuilderClass.initPointer(\n'
+              '    builder.getPointer(${slot.offset}),\n'
+              '    length,\n'
+              '    ${elementTypeString}_Builder.structSize,\n'
+              '    ${elementTypeString}_Builder.new,\n'
+              '    ${elementTypeString}_Reader.new,\n'
+              '  );\n'
+              '}',
+            );
+
           case Type_interface_Reader():
-            buffer.writeln(
-              '// TODO: codegen field of type list of interface',
-            );
+            reader.writeln('// TODO: codegen field of type list of interface');
+            builder.writeln('// TODO: codegen field of type list of interface');
           case Type_anyPointer_Reader():
-            buffer.writeln(
-              '// TODO: codegen field of type list of AnyPointer',
-            );
+            reader.writeln('// TODO: codegen field of type list of AnyPointer');
+            builder
+                .writeln('// TODO: codegen field of type list of AnyPointer');
           case Type_notInSchema_Reader():
             throw UnsupportedError('Unknown list element type');
         }
 
       case Type_enum_Reader():
-        buffer.writeln('// TODO: codegen for enum-typed field');
+        reader.writeln('// TODO: codegen for enum-typed field');
+        builder.writeln('// TODO: codegen for enum-typed field');
 
       case Type_struct_Reader(:final typeId):
         generateHas();
 
         final type = context.nodeImportsAndNames[typeId]!;
         final typeString = _imports.import(type.importUri, type.name);
-        buffer.writeDocComment(docComment);
-        buffer.writeln(
-          '${typeString}_Reader get $name => '
+
+        reader.writeDocComment(docComment);
+        reader.writeln(
+          '${typeString}_Reader get $name =>'
           // ignore: lines_longer_than_80_chars
-          '${typeString}_Reader(reader.getPointer(${slot.offset}).getStruct($defaultValue).unwrap());',
+          '  ${typeString}_Reader(reader.getPointer(${slot.offset}).getStruct($defaultValue).unwrap());',
+        );
+
+        builder.writeDocComment(docComment);
+        builder.writeln(
+          '${typeString}_Builder get $name {\n'
+          '  return ${typeString}_Builder(\n'
+          '    builder.getPointer(${slot.offset})\n'
+          '      .getStruct(${typeString}_Builder.structSize, $defaultValue)\n'
+          '      .unwrap(),\n'
+          '  );\n'
+          '}\n'
+          '${typeString}_Builder init${name.capitalize()}() =>'
+          // ignore: lines_longer_than_80_chars
+          '  ${typeString}_Builder(builder.getPointer(${slot.offset}).initStruct(${typeString}_Builder.structSize));',
         );
 
       case Type_interface_Reader():
-        buffer.writeln('// TODO: codegen for interface-typed field');
+        reader.writeln('// TODO: codegen for interface-typed field');
+        builder.writeln('// TODO: codegen for interface-typed field');
 
       case Type_anyPointer_Reader():
         if (defaultValue != null) {
@@ -663,11 +845,18 @@ class FileGenerator {
 
         generateHas();
 
-        buffer.writeDocComment(docComment);
-        buffer.writeln(
-          '${_imports.anyPointerReader} get $name => '
+        reader.writeDocComment(docComment);
+        reader.writeln(
+          '${_imports.anyPointerReader} get $name =>'
           // ignore: lines_longer_than_80_chars
-          '${_imports.anyPointerReader}(reader.getPointer(${slot.offset}));',
+          '  ${_imports.anyPointerReader}(reader.getPointer(${slot.offset}));',
+        );
+
+        builder.writeDocComment(docComment);
+        builder.writeln(
+          '${_imports.anyPointerBuilder} get $name =>'
+          // ignore: lines_longer_than_80_chars
+          '  ${_imports.anyPointerBuilder}(builder.getPointer(${slot.offset}));',
         );
 
       default:
