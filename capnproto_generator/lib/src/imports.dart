@@ -14,7 +14,7 @@ class Imports {
 
   String get byteData => _importTypedData('ByteData');
   String _importTypedData(String identifier) =>
-      import(Uri.parse('dart:typed_data'), identifier, prefix: r'$typed_data');
+      import(Uri.parse('dart:typed_data'), identifier, prefix: r'$typedData');
 
   String get pointerReader => _importCapnproto('PointerReader');
   String get pointerBuilder => _importCapnproto('PointerBuilder');
