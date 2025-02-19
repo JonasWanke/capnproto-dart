@@ -820,7 +820,7 @@ class FileGenerator {
 
         builder.writeDocComment(docComment);
         builder.writeln(
-          '${typeString}_Builder get $name {\n'
+          '${typeString}_Builder get${name.capitalize()}() {\n'
           '  return ${typeString}_Builder(\n'
           '    builder.getPointer(${slot.offset})\n'
           '      .getStruct(${typeString}_Builder.structSize, $defaultValue)\n'
