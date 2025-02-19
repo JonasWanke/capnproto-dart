@@ -98,7 +98,7 @@ class Node_struct_Reader extends Node_union_Reader {
 
   int get discriminantCount => reader.getUInt16(15, 0);
 
-  int get discriminantOffset => reader.getUInt16(8, 0);
+  int get discriminantOffset => reader.getUInt32(8, 0);
 
   bool get hasFields => !reader.getPointer(3).isNull;
   StructListReader<Field_Reader> get fields {
