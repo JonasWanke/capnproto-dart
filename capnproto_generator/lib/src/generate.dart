@@ -566,7 +566,7 @@ class FileGenerator {
         : 'builder.getUInt16(${discriminant.offset}, 0) == ${discriminant.value} && ';
     final setDiscriminant = discriminant == null
         ? ''
-        : 'builder.setUInt16(${discriminant.offset}, ${discriminant.value}, 0);';
+        : 'builder.setUInt16(${discriminant.offset}, ${discriminant.value}, 0);\n';
 
     void generateHas() {
       reader?.writeln(
@@ -614,13 +614,13 @@ class FileGenerator {
       builderSetters.writeDocComment(docComment);
       builderGetters?.writeln(
         '$dartType get $name {\n'
-        '  $setDiscriminant\n'
+        '  $setDiscriminant'
         '  return builder.get$capnpType(${slot.offset}, $defaultFromBuilder);\n'
         '}',
       );
       builderSetters.writeln(
         'set $name($dartType value) {\n'
-        '  $setDiscriminant\n'
+        '  $setDiscriminant'
         '  return builder.set$capnpType(${slot.offset}, value, $defaultFromBuilder);\n'
         '}',
       );
@@ -636,7 +636,7 @@ class FileGenerator {
         if (setDiscriminant.isNotEmpty) {
           builderSetters.writeln(
             'void set${name.capitalize()}() {\n'
-            '  $setDiscriminant\n'
+            '  $setDiscriminant'
             '}',
           );
         }
@@ -696,7 +696,7 @@ class FileGenerator {
         );
         builderSetters.writeln(
           'set $name(${_imports.string} value) {\n'
-          '  $setDiscriminant\n'
+          '  $setDiscriminant'
           '  builder.getPointer(${slot.offset}).setText(value);\n'
           '}',
         );
@@ -716,7 +716,7 @@ class FileGenerator {
         );
         builderSetters.writeln(
           'set $name(${_imports.byteData} value) {\n'
-          '  $setDiscriminant\n'
+          '  $setDiscriminant'
           '  builder.getPointer(${slot.offset}).setData(value);\n'
           '}',
         );
@@ -739,7 +739,7 @@ class FileGenerator {
           );
           builderSetters.writeln(
             'void init${name.capitalize()}(${_imports.int} length) {\n'
-            '  $setDiscriminant\n'
+            '  $setDiscriminant'
             '  ${_imports.primitiveListBuilder}.${capnpType}InitPointer(builder.getPointer(${slot.offset}), length);\n'
             '}',
           );
@@ -781,7 +781,7 @@ class FileGenerator {
             );
             builderSetters.writeln(
               '${_imports.textListBuilder} init${name.capitalize()} {\n'
-              '  $setDiscriminant\n'
+              '  $setDiscriminant'
               '  return ${_imports.textListBuilder}.initFromPointer(builder.getPointer(${slot.offset}), length);\n'
               '}',
             );
@@ -797,7 +797,7 @@ class FileGenerator {
             );
             builderSetters.writeln(
               '${_imports.dataListBuilder} init${name.capitalize()} {\n'
-              '  $setDiscriminant\n'
+              '  $setDiscriminant'
               '  return ${_imports.dataListBuilder}.initFromPointer(builder.getPointer(${slot.offset}), length);\n'
               '}',
             );
@@ -840,7 +840,7 @@ class FileGenerator {
             );
             builderSetters.writeln(
               '$listBuilder init${name.capitalize()}(${_imports.int} length) {\n'
-              '  $setDiscriminant\n'
+              '  $setDiscriminant'
               '  return $listBuilderClass.initPointer(\n'
               '    builder.getPointer(${slot.offset}),\n'
               '    length,\n'
@@ -864,9 +864,29 @@ class FileGenerator {
             throw UnsupportedError('Unknown list element type');
         }
 
-      case Type_enum_Reader():
-        reader?.writeln('// TODO: codegen for enum-typed field');
-        builderSetters.writeln('// TODO: codegen for enum-typed field');
+      case Type_enum_Reader(:final typeId):
+        final (:importUri, name: enumName) =
+            context.nodeImportsAndNames[typeId]!;
+        final enum_ = _imports.import(importUri, enumName);
+        final enumDefaultValue =
+            defaultValue != null ? '$defaultValue.value!' : 0;
+
+        reader?.writeDocComment(docComment);
+        reader?.writeln(
+          '$enum_ get $name => $enum_.fromValue(reader.getUInt16(${slot.offset}, $enumDefaultValue));',
+        );
+
+        builderGetters?.writeDocComment(docComment);
+        builderGetters?.writeln(
+          '$enum_ get $name => $enum_.fromValue(builder.getUInt16(${slot.offset}, $enumDefaultValue));',
+        );
+        builderSetters.writeln(
+          'void set $name($enum_ value) {\n'
+          '  assert(value != $enum_.notInSchema);\n'
+          '  $setDiscriminant'
+          '  builder.setUInt16(${slot.offset}, value.value!, $enumDefaultValue);\n'
+          '}',
+        );
 
       case Type_struct_Reader(:final typeId):
         generateHas();
@@ -892,7 +912,7 @@ class FileGenerator {
         );
         builderSetters.writeln(
           '${typeString}_Builder init${name.capitalize()}() {\n'
-          '  $setDiscriminant\n'
+          '  $setDiscriminant'
           '  return ${typeString}_Builder(builder.getPointer(${slot.offset}).initStruct(${typeString}_Builder.structSize));\n'
           '}',
         );
@@ -919,7 +939,7 @@ class FileGenerator {
         builderSetters.writeDocComment(docComment);
         builderSetters.writeln(
           '${_imports.anyPointerBuilder} init${name.capitalize()}() {\n'
-          '  $setDiscriminant\n'
+          '  $setDiscriminant'
           '  final result = ${_imports.anyPointerBuilder}(builder.getPointer(${slot.offset}));\n'
           '  result.clear();\n'
           '  return result;\n'
