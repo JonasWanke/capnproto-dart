@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:collection/collection.dart';
@@ -84,8 +85,14 @@ class CodeGenerationCommand {
 class GeneratorContext {
   GeneratorContext(this.command, this.request) {
     for (final node in request.nodes) {
-      nodeMap[node.id] = node;
+      nodeMap[node.id] = (node: node, sourceInfo: null);
       nodeParents[node.id] = node.scopeId;
+    }
+    for (final sourceInfo in request.sourceInfo) {
+      final data = nodeMap[sourceInfo.id];
+      if (data == null) continue;
+
+      nodeMap[sourceInfo.id] = (node: data.node, sourceInfo: sourceInfo);
     }
 
     // Fix up "anonymous" method params and results scopes.
@@ -121,16 +128,8 @@ class GeneratorContext {
 
   final CodeGenerationCommand command;
   final CodeGeneratorRequest_Reader request;
-  final Map<int, Node_Reader> nodeMap = {};
-
-  Node_struct_Reader getStruct(int nodeId) {
-    final node = nodeMap[nodeId]!;
-    final which = node.which;
-    if (which is! Node_struct_Reader) {
-      throw ArgumentError('Node $nodeId is not a struct');
-    }
-    return which;
-  }
+  final Map<int, ({Node_Reader node, Node_SourceInfo_Reader? sourceInfo})>
+      nodeMap = {};
 
   /// Map from node ID to the node ID of its parent scope.
   ///
@@ -143,8 +142,9 @@ class GeneratorContext {
 
   void _populateImportsAndNames(Uri importUri, int nodeId, String nodeName) {
     // Unused nodes in imported files might be omitted from the node map;
-    final node = nodeMap[nodeId];
-    if (node == null) return;
+    final data = nodeMap[nodeId];
+    if (data == null) return;
+    final (:node, sourceInfo: _) = data;
 
     final name = node.annotations
             .where((it) => it.id == nameAnnotationId)
@@ -158,10 +158,12 @@ class GeneratorContext {
     if (node.which case final Node_struct_Reader struct) {
       for (final field in struct.fields) {
         if (field.which case final Field_group_Reader group) {
+          final rawName =
+              field.annotations.dartNameAnnotationValue ?? field.name;
           _populateImportsAndNames(
             importUri,
             group.typeId,
-            '$nestedNamePrefix${field.annotations.dartNameAnnotationValue ?? field.name}',
+            '$nestedNamePrefix$rawName',
           );
         }
       }
@@ -212,6 +214,7 @@ class FileGenerator {
     output.writeln();
 
     final codeBuffer = StringBuffer();
+
     generator._imports.addImportsToBuffer(codeBuffer);
     codeBuffer.writeln();
     for (final declarationBuffer in generator._declarations) {
@@ -235,20 +238,21 @@ class FileGenerator {
   }
 
   void _generateNode(int nodeId, {String? superClass}) {
-    final node = context.nodeMap[nodeId]!;
+    final (:node, :sourceInfo) = context.nodeMap[nodeId]!;
     final name = context.nodeImportsAndNames[nodeId]!.name;
 
     final nestedNodes = node.nestedNodes.toList();
     void generateConstantsAsStatic(StringBuffer buffer) {
       for (var i = 0; i < nestedNodes.length; i++) {
         final nestedNode = nestedNodes[i];
-        if (context.nodeMap[nestedNode.id]!.which
-            case final Node_const_Reader constant) {
+        final (:node, :sourceInfo) = context.nodeMap[nestedNode.id]!;
+        if (node.which case final Node_const_Reader constant) {
           _generateConstant(
             buffer,
             nestedNode.dartName().avoidDartKeywords(),
             constant.type,
             constant.value,
+            docComment: sourceInfo?.docComment,
             isStatic: true,
           );
           buffer.writeln();
@@ -270,6 +274,7 @@ class FileGenerator {
         );
         buffer.writeln();
 
+        buffer.writeDocComment(sourceInfo?.docComment);
         buffer.writeln(
           'class ${name}_Reader '
           'extends ${superClass ?? _imports.capnpStructReader} {',
@@ -279,11 +284,12 @@ class FileGenerator {
 
         generateConstantsAsStatic(buffer);
 
-        final unionFields = <Field_Reader>[];
+        final unionFields = <(Field_Reader, String?)>[];
 
-        for (final field in struct.fields) {
+        for (final (index, field) in struct.fields.indexed) {
+          final docComment = sourceInfo?.members[index].docComment;
           if (field.discriminantValue != Field_Reader.noDiscriminant) {
-            unionFields.add(field);
+            unionFields.add((field, docComment));
           } else {
             switch (field.which) {
               case final Field_slot_Reader slot:
@@ -291,6 +297,7 @@ class FileGenerator {
                   buffer,
                   field.dartName.avoidDartKeywords(),
                   slot,
+                  docComment: docComment,
                 );
 
               case Field_group_Reader(:final typeId):
@@ -310,7 +317,7 @@ class FileGenerator {
             // ignore: lines_longer_than_80_chars
             'return switch (reader.getUInt16(${struct.discriminantOffset}, 0)) {',
           );
-          for (final unionField in unionFields) {
+          for (final (unionField, _) in unionFields) {
             final variantName = '${name}_${unionField.name}';
             buffer.writeln(
               // ignore: lines_longer_than_80_chars
@@ -337,11 +344,12 @@ class FileGenerator {
           );
           buffer.writeln();
 
-          for (final unionField in unionFields) {
+          for (final (unionField, docComment) in unionFields) {
             switch (unionField.which) {
               case final Field_slot_Reader slot:
                 final buffer = _addDeclaration();
 
+                buffer.writeDocComment(docComment);
                 final variantName = '${name}_${unionField.dartName}';
                 buffer.writeln(
                   'class ${variantName}_Reader extends ${name}_union_Reader {',
@@ -349,7 +357,7 @@ class FileGenerator {
                 buffer.writeln('const ${variantName}_Reader(super.reader);');
                 buffer.writeln();
 
-                _generateField(buffer, 'value', slot);
+                _generateField(buffer, 'value', slot, docComment: null);
 
                 buffer.writeln('}');
 
@@ -373,8 +381,10 @@ class FileGenerator {
         buffer.writeln('// enum ${node.shortDisplayName}');
         buffer.writeln();
 
+        buffer.writeDocComment(sourceInfo?.docComment);
         buffer.writeln('enum $name {');
         for (final (value, entry) in enum_.enumerants.indexed) {
+          buffer.writeDocComment(sourceInfo?.members[value].docComment);
           buffer.writeln('${entry.dartName.avoidDartKeywords()}($value),');
         }
         buffer.writeln('notInSchema(null);');
@@ -405,7 +415,14 @@ class FileGenerator {
 
       case Node_const_Reader(:final type, :final value):
         final buffer = _addDeclaration();
-        _generateConstant(buffer, name, type, value, isStatic: false);
+        _generateConstant(
+          buffer,
+          name,
+          type,
+          value,
+          docComment: sourceInfo?.docComment,
+          isStatic: false,
+        );
 
       case Node_annotation_Reader():
         break;
@@ -422,8 +439,9 @@ class FileGenerator {
   void _generateField(
     StringBuffer buffer,
     String name,
-    Field_slot_Reader slot,
-  ) {
+    Field_slot_Reader slot, {
+    required String? docComment,
+  }) {
     void generateHas() {
       buffer.writeln(
         '${_imports.bool} get has${name.capitalize()} => '
@@ -439,68 +457,81 @@ class FileGenerator {
           slot.type,
           slot.defaultValue,
           isStatic: true,
+          docComment: 'Default value of [$name].',
           onlyIfNotDefault: true,
         );
     final defaultValue = hasExplicitDefault ? defaultName : null;
 
     switch (slot.type.which) {
       case Type_void_Reader():
+        buffer.writeDocComment(docComment);
         buffer.writeln('void get $name {}');
 
       case Type_bool_Reader():
+        buffer.writeDocComment(docComment);
         buffer.writeln(
           '${_imports.bool} get $name => '
           'reader.getBool(${slot.offset}, ${defaultValue ?? false});',
         );
 
       case Type_int8_Reader():
+        buffer.writeDocComment(docComment);
         buffer.writeln(
           '${_imports.int} get $name => '
           'reader.getInt8(${slot.offset}, ${defaultValue ?? 0});',
         );
       case Type_int16_Reader():
+        buffer.writeDocComment(docComment);
         buffer.writeln(
           '${_imports.int} get $name => '
           'reader.getInt16(${slot.offset}, ${defaultValue ?? 0});',
         );
       case Type_int32_Reader():
+        buffer.writeDocComment(docComment);
         buffer.writeln(
           '${_imports.int} get $name => '
           'reader.getInt32(${slot.offset}, ${defaultValue ?? 0});',
         );
       case Type_int64_Reader():
+        buffer.writeDocComment(docComment);
         buffer.writeln(
           '${_imports.int} get $name => '
           'reader.getInt64(${slot.offset}, ${defaultValue ?? 0});',
         );
       case Type_uint8_Reader():
+        buffer.writeDocComment(docComment);
         buffer.writeln(
           '${_imports.int} get $name => '
           'reader.getUInt8(${slot.offset}, ${defaultValue ?? 0});',
         );
       case Type_uint16_Reader():
+        buffer.writeDocComment(docComment);
         buffer.writeln(
           '${_imports.int} get $name => '
           'reader.getUInt16(${slot.offset}, ${defaultValue ?? 0});',
         );
       case Type_uint32_Reader():
+        buffer.writeDocComment(docComment);
         buffer.writeln(
           '${_imports.int} get $name => '
           'reader.getUInt32(${slot.offset}, ${defaultValue ?? 0});',
         );
       case Type_uint64_Reader():
+        buffer.writeDocComment(docComment);
         buffer.writeln(
           '${_imports.int} get $name => '
           'reader.getUInt64(${slot.offset}, ${defaultValue ?? 0});',
         );
 
       case Type_float32_Reader():
+        buffer.writeDocComment(docComment);
         buffer.writeln(
           '${_imports.double} get $name => '
           // ignore: lines_longer_than_80_chars
           'reader.getFloat32(${slot.offset}, ${defaultValue == null ? '0' : '_${defaultValue}Bits'});',
         );
       case Type_float64_Reader():
+        buffer.writeDocComment(docComment);
         buffer.writeln(
           '${_imports.double} get $name => '
           // ignore: lines_longer_than_80_chars
@@ -509,6 +540,8 @@ class FileGenerator {
 
       case Type_text_Reader():
         generateHas();
+
+        buffer.writeDocComment(docComment);
         buffer.writeln(
           '${_imports.string} get $name => '
           // ignore: lines_longer_than_80_chars
@@ -516,6 +549,8 @@ class FileGenerator {
         );
       case Type_data_Reader():
         generateHas();
+
+        buffer.writeDocComment(docComment);
         buffer.writeln(
           '${_imports.byteData} get $name => '
           // ignore: lines_longer_than_80_chars
@@ -526,6 +561,7 @@ class FileGenerator {
         generateHas();
 
         void generatePrimitiveList(String dartType, String capnpType) {
+          buffer.writeDocComment(docComment);
           buffer.writeln(
             '${_imports.primitiveListReader}<$dartType> get $name =>'
             // ignore: lines_longer_than_80_chars
@@ -608,6 +644,7 @@ class FileGenerator {
 
         final type = context.nodeImportsAndNames[typeId]!;
         final typeString = _imports.import(type.importUri, type.name);
+        buffer.writeDocComment(docComment);
         buffer.writeln(
           '${typeString}_Reader get $name => '
           // ignore: lines_longer_than_80_chars
@@ -626,6 +663,7 @@ class FileGenerator {
 
         generateHas();
 
+        buffer.writeDocComment(docComment);
         buffer.writeln(
           '${_imports.anyPointerReader} get $name => '
           // ignore: lines_longer_than_80_chars
@@ -642,6 +680,7 @@ class FileGenerator {
     String name,
     Type_Reader type,
     Value_Reader value, {
+    required String? docComment,
     required bool isStatic,
     bool onlyIfNotDefault = false,
   }) {
@@ -651,12 +690,14 @@ class FileGenerator {
       case (Type_void_Reader(), Value_void_Reader()):
         if (onlyIfNotDefault) return false;
 
+        buffer.writeDocComment(docComment);
         buffer.writeln('$staticString const $name = null;');
 
       case (Type_bool_Reader(), Value_bool_Reader(:final value)):
         // ignore: no_literal_bool_comparisons, no-boolean-literal-compare
         if (onlyIfNotDefault && value == false) return false;
 
+        buffer.writeDocComment(docComment);
         buffer.writeln('$staticString const $name = $value;');
 
       case (Type_int8_Reader(), Value_int8_Reader(:final num value)) ||
@@ -669,6 +710,7 @@ class FileGenerator {
             (Type_uint64_Reader(), Value_uint64_Reader(:final num value)):
         if (onlyIfNotDefault && value == 0) return false;
 
+        buffer.writeDocComment(docComment);
         buffer.writeln('$staticString const $name = $value;');
 
       case (
@@ -677,6 +719,7 @@ class FileGenerator {
         ):
         if (onlyIfNotDefault && value == 0) return false;
 
+        buffer.writeDocComment(docComment);
         buffer.writeln('$staticString const $name = $value;');
         buffer.writeln(
           // ignore: lines_longer_than_80_chars
@@ -688,6 +731,7 @@ class FileGenerator {
         ):
         if (onlyIfNotDefault && value == 0) return false;
 
+        buffer.writeDocComment(docComment);
         buffer.writeln('$staticString const $name = $value;');
         buffer.writeln(
           // ignore: lines_longer_than_80_chars
@@ -697,6 +741,7 @@ class FileGenerator {
       case (Type_text_Reader(), Value_text_Reader(:final value)):
         if (onlyIfNotDefault && value == '') return false;
 
+        buffer.writeDocComment(docComment);
         buffer.writeln(
           '$staticString const $name = '
           "'${value.replaceAll("'", r"\'").replaceAll('\n', r'\n')}';",
@@ -710,13 +755,14 @@ class FileGenerator {
       case (Type_enum_Reader(:final typeId), Value_enum_Reader(:final value)):
         if (onlyIfNotDefault && value == 0) return false;
 
-        final type = context.nodeMap[typeId]!;
+        final type = context.nodeMap[typeId]!.node;
         final enumType = context.nodeImportsAndNames[typeId]!;
         final enumTypeString =
             _imports.import(enumType.importUri, enumType.name);
 
         if (type.which case final Node_enum_Reader enum_) {
           final enumerant = enum_.enumerants[value];
+          buffer.writeDocComment(docComment);
           buffer.writeln(
             '$staticString const $name = $enumTypeString.${enumerant.name};',
           );
@@ -735,6 +781,7 @@ class FileGenerator {
           isStatic: isStatic,
         );
 
+        buffer.writeDocComment(docComment);
         buffer.write('$staticString final $name = ');
         void generatePrimitiveList(String capnpType) {
           buffer.writeln(
@@ -816,6 +863,7 @@ class FileGenerator {
 
         final type = context.nodeImportsAndNames[typeId]!;
         final typeString = _imports.import(type.importUri, type.name);
+        buffer.writeDocComment(docComment);
         buffer.writeln(
           '$staticString final $name = '
           '${typeString}_Reader($reference.getStruct(null).unwrap());',
@@ -832,6 +880,7 @@ class FileGenerator {
           isStatic: isStatic,
         );
 
+        buffer.writeDocComment(docComment);
         buffer.writeln(
           '$staticString final $name = '
           '${_imports.anyPointerReader}($reference);',
@@ -919,6 +968,16 @@ extension on String {
 
   String avoidDartKeywords() =>
       _dartKeywordsToAvoid.contains(this) ? '${this}_' : this;
+}
+
+extension on StringBuffer {
+  void writeDocComment(String? content) {
+    if (content == null) return;
+
+    for (final line in const LineSplitter().convert(content)) {
+      writeln('/// $line');
+    }
+  }
 }
 
 // Annotation IDs as defined in `dart.capnp`.
