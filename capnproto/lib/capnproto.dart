@@ -1,4 +1,5 @@
 export 'src/any_pointer.dart';
+export 'src/async_buffered_reader.dart';
 export 'src/constants.dart';
 export 'src/data_list.dart';
 export 'src/error.dart';

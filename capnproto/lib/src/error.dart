@@ -20,8 +20,8 @@ sealed class CapnpError {
   const CapnpError();
 }
 
-class PrematureEndOfFileCapnpError extends CapnpError {
-  const PrematureEndOfFileCapnpError();
+class PrematureEndOfInputCapnpError extends CapnpError {
+  const PrematureEndOfInputCapnpError();
 }
 
 class InvalidNumberOfSegmentsCapnpError extends CapnpError {

@@ -72,3 +72,7 @@ extension ByteDataCapnp on ByteData {
         );
   }
 }
+
+extension Uint8ListCapnp on Uint8List {
+  ByteData get asByteData => buffer.asByteData(offsetInBytes, lengthInBytes);
+}

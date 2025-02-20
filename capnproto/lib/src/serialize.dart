@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:meta/meta.dart';
 import 'package:oxidized/oxidized.dart';
 
+import 'async_buffered_reader.dart';
 import 'constants.dart';
 import 'error.dart';
 import 'message.dart';
@@ -71,6 +72,74 @@ CapnpResult<MessageReader?> tryReadMessage(
   return Ok(
     MessageReader(
       builder.intoSegments(data.offsetBytes(offset)),
+      options: options,
+    ),
+  );
+}
+
+/// Reads a serialized message (including a segment table) from [reader].
+///
+/// [reader] is allowed to extend beyond the end of the message.
+///
+/// The segment table format for streams is defined in the Cap'n Proto
+/// [encoding spec](https://capnproto.org/encoding.html).
+Future<CapnpResult<MessageReader>> readMessageAsync(
+  AsyncBufferedReader reader, {
+  ReaderOptions options = const ReaderOptions(),
+}) async {
+  switch (await tryReadMessageAsync(reader, options: options)) {
+    case Ok(value: null):
+      return const Err(PrematureEndOfInputCapnpError());
+    case Ok(:final value?):
+      return Ok(value);
+    case Err(:final error):
+      return Err(error);
+  }
+}
+
+/// Like [readMessageAsync], but returns `Ok(null)` instead of an error if the
+/// [reader] is empty.
+Future<CapnpResult<MessageReader?>> tryReadMessageAsync(
+  AsyncBufferedReader reader, {
+  ReaderOptions options = const ReaderOptions(),
+}) async {
+  final segmentCountBuffer = Uint8List(4);
+  final readBytes = await reader.read(segmentCountBuffer);
+  if (readBytes == 0) return const Ok(null);
+  if (readBytes < 4) return const Err(PrematureEndOfInputCapnpError());
+
+  final int segmentCount;
+  switch (segmentCountBuffer.asByteData.getSegmentCount()) {
+    case Ok(:final value):
+      segmentCount = value;
+    case Err(:final error):
+      return Err(error);
+  }
+
+  final segmentLengthsBuffer =
+      Uint8List(4 * (segmentCount.isEven ? segmentCount + 1 : segmentCount));
+  if (await reader.readExact(segmentCountBuffer) case Err(:final error)) {
+    return Err(error);
+  }
+
+  final SegmentLengthsBuilder builder;
+  switch (segmentLengthsBuffer.asByteData
+      .getSegmentLengths(segmentCount, options)) {
+    case Ok(:final value):
+      builder = value.builder;
+    case Err(:final error):
+      return Err(error);
+  }
+
+  final dataBuffer =
+      Uint8List(builder.totalWords * CapnpConstants.bytesPerWord);
+  if (await reader.readExact(dataBuffer) case Err(:final error)) {
+    return Err(error);
+  }
+
+  return Ok(
+    MessageReader(
+      builder.intoSegments(dataBuffer.asByteData),
       options: options,
     ),
   );
