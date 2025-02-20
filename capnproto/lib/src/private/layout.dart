@@ -103,7 +103,10 @@ final class WirePointer {
   int get _offsetAndKind => data.getUint32(0, Endian.little);
   set _offsetAndKind(int value) => data.setUint32(0, value, Endian.little);
 
-  int get _offset => (1 + (_offsetAndKind >> 2)) * CapnpConstants.bytesPerWord;
+  int get _offset {
+    final rawOffset = _offsetAndKind << 32 >> 34;
+    return (1 + rawOffset) * CapnpConstants.bytesPerWord;
+  }
 
   int get _upper32Bits => data.getUint32(4, Endian.little);
   set _upper32Bits(int value) => data.setUint32(4, value, Endian.little);
