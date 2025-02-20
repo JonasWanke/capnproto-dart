@@ -164,7 +164,7 @@ class GeneratorContext {
               field.annotations.dartNameAnnotationValue ?? field.name;
           _populateImportsAndNames(
             importUri,
-            group.typeId,
+            group.typeId_,
             '$nestedNamePrefix$rawName',
           );
         }
@@ -286,6 +286,9 @@ class FileGenerator {
           'class ${name}_Reader extends $superClassReader {\n'
           '  const ${name}_Reader(super.reader);\n',
         );
+
+        reader.writeTypeId(node.id);
+
         generateConstantsAsStatic(reader);
 
         builder.writeDocComment(sourceInfo?.docComment);
@@ -331,8 +334,8 @@ class FileGenerator {
                 docComment: docComment,
               );
 
-            case Field_group_Reader(:final typeId):
-              _generateNode(typeId);
+            case Field_group_Reader(:final typeId_):
+              _generateNode(typeId_);
 
             case Field_notInSchema_Reader():
               throw UnsupportedError('Unknown field type');
@@ -359,9 +362,9 @@ class FileGenerator {
                   docComment: docComment,
                 );
 
-              case Field_group_Reader(:final typeId):
+              case Field_group_Reader(:final typeId_):
                 final (importUri: _, :name) =
-                    context.nodeImportsAndNames[typeId]!;
+                    context.nodeImportsAndNames[typeId_]!;
                 builder.writeDocComment(docComment);
                 builder.writeln(
                   '${name}_Builder init${unionField.name.capitalize()}() {\n'
@@ -465,8 +468,8 @@ class FileGenerator {
                 reader.writeln('}');
                 builder.writeln('}');
 
-              case Field_group_Reader(:final typeId):
-                _generateNode(typeId, superClass: '${name}_union');
+              case Field_group_Reader(:final typeId_):
+                _generateNode(typeId_, superClass: '${name}_union');
 
               case Field_notInSchema_Reader():
                 throw UnsupportedError('Unknown field type');
@@ -517,6 +520,8 @@ class FileGenerator {
         buffer.writeln('};');
         buffer.writeln('}');
         buffer.writeln();
+
+        buffer.writeTypeId(node.id);
 
         generateConstantsAsStatic(buffer);
 
@@ -810,8 +815,8 @@ class FileGenerator {
             reader?.writeln('// TODO: codegen field of type list of enum');
             builderSetters
                 .writeln('// TODO: codegen field of type list of enum');
-          case Type_struct_Reader(:final typeId):
-            final elementType = context.nodeImportsAndNames[typeId]!;
+          case Type_struct_Reader(:final typeId_):
+            final elementType = context.nodeImportsAndNames[typeId_]!;
             final elementTypeString =
                 _imports.import(elementType.importUri, elementType.name);
             final listReaderClass = _imports.structListReader;
@@ -865,9 +870,9 @@ class FileGenerator {
             throw UnsupportedError('Unknown list element type');
         }
 
-      case Type_enum_Reader(:final typeId):
+      case Type_enum_Reader(:final typeId_):
         final (:importUri, name: enumName) =
-            context.nodeImportsAndNames[typeId]!;
+            context.nodeImportsAndNames[typeId_]!;
         final enum_ = _imports.import(importUri, enumName);
         final enumDefaultValue =
             defaultValue != null ? '$defaultValue.value!' : 0;
@@ -889,10 +894,10 @@ class FileGenerator {
           '}',
         );
 
-      case Type_struct_Reader(:final typeId):
+      case Type_struct_Reader(:final typeId_):
         generateHas();
 
-        final type = context.nodeImportsAndNames[typeId]!;
+        final type = context.nodeImportsAndNames[typeId_]!;
         final typeString = _imports.import(type.importUri, type.name);
 
         reader?.writeDocComment(docComment);
@@ -1027,11 +1032,11 @@ class FileGenerator {
 
         generateConstantData(name, value, buffer, isStatic: isStatic);
 
-      case (Type_enum_Reader(:final typeId), Value_enum_Reader(:final value)):
+      case (Type_enum_Reader(:final typeId_), Value_enum_Reader(:final value)):
         if (onlyIfNotDefault && value == 0) return false;
 
-        final type = context.nodeMap[typeId]!.node;
-        final enumType = context.nodeImportsAndNames[typeId]!;
+        final type = context.nodeMap[typeId_]!.node;
+        final enumType = context.nodeImportsAndNames[typeId_]!;
         final enumTypeString =
             _imports.import(enumType.importUri, enumType.name);
 
@@ -1100,8 +1105,8 @@ class FileGenerator {
             buffer.writeln('// TODO: codegen field of type list of list');
           case Type_enum_Reader():
             buffer.writeln('// TODO: codegen field of type list of enum');
-          case Type_struct_Reader(:final typeId):
-            final elementType = context.nodeImportsAndNames[typeId]!;
+          case Type_struct_Reader(:final typeId_):
+            final elementType = context.nodeImportsAndNames[typeId_]!;
             final elementTypeString =
                 _imports.import(elementType.importUri, elementType.name);
             final listType = _imports.structListReader;
@@ -1122,7 +1127,7 @@ class FileGenerator {
         }
 
       case (
-          Type_struct_Reader(:final typeId),
+          Type_struct_Reader(:final typeId_),
           Value_struct_Reader(:final value),
         ):
         final reference = generateConstantPointerReader(
@@ -1132,7 +1137,7 @@ class FileGenerator {
           isStatic: isStatic,
         );
 
-        final type = context.nodeImportsAndNames[typeId]!;
+        final type = context.nodeImportsAndNames[typeId_]!;
         final typeString = _imports.import(type.importUri, type.name);
         buffer.writeDocComment(docComment);
         buffer.writeln(
@@ -1223,15 +1228,17 @@ extension on Annotation_Reader {
 // Keywords that “can be used as an identifier without restriction”:
 // `async`, `base`, `hide`, `of`, `on`, `sealed`, `show`, `sync`, `when`
 const _dartKeywordsToAvoid = {
-  //
+  // Dart keywords:
   'abstract', 'as', 'assert', 'await', 'break', 'case', 'catch', 'class',
   'const', 'continue', 'covariant', 'default', 'deferred', 'do', 'dynamic',
   'else', 'enum', 'export', 'extends', 'extension', 'external', 'factory',
   'false', 'final', 'finally', 'for', 'Function', 'get', 'if', 'implements',
   'import', 'in', 'interface', 'is', 'late', 'library', 'mixin', 'new', 'null',
   'operator', 'part', 'required', 'rethrow', 'return', 'set', 'static', 'super',
-  'switch', 'this', 'throw', 'true', 'try', 'type', 'typedef', 'var', 'void',
-  'with', 'while', 'yield',
+  'switch', 'this', 'throw', 'true', 'try', 'typedef', 'var', 'void', 'with',
+  'while', 'yield',
+  // Generated by us:
+  'typeId',
 };
 
 extension on String {
@@ -1248,6 +1255,12 @@ extension on StringBuffer {
     for (final line in const LineSplitter().convert(content)) {
       writeln('/// $line');
     }
+  }
+
+  void writeTypeId(int typeId) {
+    // TODO(JonasWanke): encode as hex, but the following fails for negative numbers
+    // typeId.toRadixString(16).padLeft(16, '0')
+    writeln('static const typeId = $typeId;\n');
   }
 }
 
