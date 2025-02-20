@@ -9,7 +9,7 @@ import 'package:path/path.dart' as path;
 
 import 'constants.dart';
 import 'imports.dart';
-import 'schema.dart';
+import 'schema.capnp.dart';
 
 class CodeGenerationCommand {
   /// [extraImports] is a map from import URI to the file IDs that the import
