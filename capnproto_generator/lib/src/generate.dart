@@ -1168,7 +1168,7 @@ class FileGenerator {
 }
 
 extension on CodeGeneratorRequest_RequestedFile_Reader {
-  String get dartFilename => path.setExtension(filename, '.dart');
+  String get dartFilename => '$filename.dart';
 }
 
 extension on Node_Reader {
