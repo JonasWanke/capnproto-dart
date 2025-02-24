@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'dart:typed_data';
 
+import 'package:collection/collection.dart';
 import 'package:oxidized/oxidized.dart';
 
 import '../constants.dart';
@@ -23,6 +24,8 @@ abstract class ReaderArena {
     int sizeInWords,
   );
   CapnpResult<void> amplifiedRead(int virtualAmount);
+
+  int get sizeInWords;
 }
 
 class ReaderArenaImpl extends ReaderArena {
@@ -85,6 +88,16 @@ class ReaderArenaImpl extends ReaderArena {
   @override
   CapnpResult<void> amplifiedRead(int virtualAmount) =>
       readLimiter.canRead(virtualAmount);
+
+  @override
+  int get sizeInWords {
+    var result = 0;
+    for (var i = 0; i < _segments.length; i++) {
+      final segment = _segments.getSegment(SegmentId(i));
+      result += (segment?.lengthInBytes ?? 0) ~/ CapnpConstants.bytesPerWord;
+    }
+    return result;
+  }
 }
 
 class NullArena extends ReaderArena {
@@ -110,6 +123,9 @@ class NullArena extends ReaderArena {
 
   @override
   CapnpResult<void> amplifiedRead(int virtualAmount) => const Ok(null);
+
+  @override
+  int get sizeInWords => 0;
 }
 
 abstract class BuilderArena extends ReaderArena {
@@ -234,6 +250,9 @@ class BuilderArenaImpl extends BuilderArena {
 
   @override
   CapnpResult<void> amplifiedRead(int virtualAmount) => const Ok(null);
+
+  @override
+  int get sizeInWords => segments.map((it) => it.allocatedWords).sum;
 }
 
 class HeapAllocator {

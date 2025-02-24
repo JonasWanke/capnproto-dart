@@ -77,6 +77,8 @@ class MessageReader {
 
   final ReaderArenaImpl _arena;
 
+  int get sizeInWords => _arena.sizeInWords;
+
   /// Gets the root of the message, interpreting it as the given type.
   CapnpResult<R> getRoot<R extends CapnpReader>(
     FromPointerReader<R> fromPointer,
@@ -106,6 +108,8 @@ class MessageBuilder {
 
   final BuilderArenaImpl _arena;
   List<ByteData> get segmentsForOutput => _arena.segmentsForOutput;
+
+  int get sizeInWords => _arena.sizeInWords;
 
   /// Initializes the root as a value of the given type.
   B initRoot<B extends CapnpBuilder<R>, R extends CapnpReader>(
